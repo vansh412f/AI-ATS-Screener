@@ -1,17 +1,25 @@
 "use server";
 
-// Polyfill DOMMatrix for the Node.js backend to prevent pdf.js crashes
-if (typeof global !== "undefined" && typeof global.DOMMatrix === "undefined") {
-  (global as any).DOMMatrix = class DOMMatrix {};
-}
-
-const pdfParse = require("pdf-parse");
+import { CanvasFactory } from "pdf-parse/worker";
+import { PDFParse } from "pdf-parse";
 
 export type ParsePdfResult =
-  | { success: true; text: string; pageCount: number; jobDescription: string | null; error: null; }
-  | { success: false; text: null; pageCount?: never; jobDescription?: never; error: string; };
+  | {
+      success: true;
+      text: string;
+      pageCount: number;
+      jobDescription: string | null;
+      error: null;
+    }
+  | {
+      success: false;
+      text: null;
+      pageCount?: never;
+      jobDescription?: never;
+      error: string;
+    };
 
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; 
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ACCEPTED_MIME_TYPE = "application/pdf";
 
 function validateFile(file: File): string | null {
@@ -29,32 +37,23 @@ function validateFile(file: File): string | null {
 
 function sanitizeText(raw: string): string {
   return raw
-    .replace(/\r\n/g, "\n")        // Normalize line endings
-    .replace(/\r/g, "\n")           // Normalize carriage returns
-    .replace(/\f/g, "\n")           // Replace form feeds
-    .replace(/[ \t]+/g, " ")        // Collapse horizontal whitespace
-    .replace(/\n{3,}/g, "\n\n")     // Collapse excessive blank lines
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\f/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
-
 
 export async function parsePdf(formData: FormData): Promise<ParsePdfResult> {
   const rawFile = formData.get("resume");
 
   if (!rawFile) {
-    return {
-      success: false,
-      text: null,
-      error: "No file was received. Please attach a PDF resume.",
-    };
+    return { success: false, text: null, error: "No file was received. Please attach a PDF resume." };
   }
 
   if (!(rawFile instanceof File)) {
-    return {
-      success: false,
-      text: null,
-      error: "Invalid payload: the 'resume' field must be a file.",
-    };
+    return { success: false, text: null, error: "Invalid payload: the 'resume' field must be a file." };
   }
 
   const validationError = validateFile(rawFile);
@@ -74,63 +73,43 @@ export async function parsePdf(formData: FormData): Promise<ParsePdfResult> {
     buffer = Buffer.from(arrayBuffer);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return {
-      success: false,
-      text: null,
-      error: `Failed to read file into memory: ${message}`,
-    };
+    return { success: false, text: null, error: `Failed to read file into memory: ${message}` };
   }
 
-  let parsedData: Awaited<ReturnType<typeof pdfParse>>;
+  let parsedText: string;
+  let pageCount: number;
+
   try {
-    parsedData = await pdfParse(buffer, {
-      // Disable the internal test-file fixture check that pdf-parse uses
-      // when no `data` param is found; keeps the call clean and in-memory.
-      max: 0,
-    });
+    const parser = new PDFParse({ data: new Uint8Array(buffer), CanvasFactory });
+    const result = await parser.getText();
+    parsedText = result.text ?? "";
+    pageCount = result.total;
+    await parser.destroy();
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown parsing error";
 
     if (message.toLowerCase().includes("password")) {
-      return {
-        success: false,
-        text: null,
-        error: "This PDF is password-protected. Please upload an unlocked copy.",
-      };
+      return { success: false, text: null, error: "This PDF is password-protected. Please upload an unlocked copy." };
     }
-    if (message.toLowerCase().includes("invalid pdf")) {
-      return {
-        success: false,
-        text: null,
-        error: "The file does not appear to be a valid PDF.",
-      };
+    if (message.toLowerCase().includes("invalid pdf") || message.toLowerCase().includes("not a pdf")) {
+      return { success: false, text: null, error: "The file does not appear to be a valid PDF." };
     }
 
+    return { success: false, text: null, error: `PDF parsing failed: ${message}` };
+  }
+
+  if (!parsedText.trim()) {
     return {
       success: false,
       text: null,
-      error: `PDF parsing failed: ${message}`,
+      error: "No readable text was found in this PDF. It may be a scanned image without an OCR layer. Please use a text-based PDF.",
     };
   }
-
-  const rawText: string = parsedData.text ?? "";
-
-  if (!rawText.trim()) {
-    return {
-      success: false,
-      text: null,
-      error:
-        "No readable text was found in this PDF. It may be a scanned image " +
-        "without an OCR layer. Please use a text-based PDF.",
-    };
-  }
-
-  const cleanText = sanitizeText(rawText);
 
   return {
     success: true,
-    text: cleanText,
-    pageCount: parsedData.numpages,
+    text: sanitizeText(parsedText),
+    pageCount,
     jobDescription,
     error: null,
   };
