@@ -29,9 +29,6 @@ import {
 import { AtsAnalysisResult } from "@/actions/analyze-resume";
 import { cn } from "@/lib/utils";
 
-// ─── Public types ─────────────────────────────────────────────────────────────
-
-// GENERAL_THEME removed — we always run dual analysis now.
 export interface DashboardResults {
   legacy: AtsAnalysisResult;
   modern: AtsAnalysisResult;
@@ -41,8 +38,6 @@ interface ResultDashboardProps {
   results: DashboardResults;
   onReset: () => void;
 }
-
-// ─── Column theme tokens ──────────────────────────────────────────────────────
 
 const LEGACY_THEME = {
   accent: "#f97316",
@@ -88,8 +83,6 @@ const MODERN_THEME = {
 
 type ColumnTheme = typeof LEGACY_THEME;
 
-// ─── Score helpers ────────────────────────────────────────────────────────────
-
 function getScoreTextClass(score: number, theme: ColumnTheme): string {
   if (score >= 80) return theme.scoreHigh;
   if (score >= 60) return theme.scoreMid;
@@ -115,8 +108,6 @@ function getScoreTierLabel(score: number): string {
   if (score >= 40) return "Significant gaps to address";
   return "High rejection risk";
 }
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ScoreRing({
   score,
@@ -446,8 +437,6 @@ function ScoreDelta({ legacy, modern }: { legacy: number; modern: number }) {
     </span>
   );
 }
-
-// ─── Root export ──────────────────────────────────────────────────────────────
 
 export function ResultDashboard({ results, onReset }: ResultDashboardProps) {
   return (
