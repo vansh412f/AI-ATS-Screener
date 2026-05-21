@@ -49,7 +49,9 @@ export default function Navbar() {
                 <NavigationMenuList className="gap-2">
                   {navigation.map((item) => (
                     <NavigationMenuItem key={item.name}>
-                      <Link href={item.href} legacyBehavior passHref>
+                      <Link href={item.href}>
+                        {/* @next-codemod-error This Link previously used the now removed `legacyBehavior` prop, and has a child that might not be an anchor. The codemod bailed out of lifting the child props to the Link. Check that the child component does not render an anchor, and potentially move the props manually to Link. */
+                        }
                         <NavigationMenuLink className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors cursor-pointer">
                           <item.icon className="h-4 w-4 text-zinc-500" />
                           {item.name}

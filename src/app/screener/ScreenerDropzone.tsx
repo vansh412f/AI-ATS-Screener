@@ -5,22 +5,13 @@ import { useDropzone, FileRejection } from "react-dropzone";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   FileText,
   UploadCloud,
   X,
   CheckCircle2,
   AlertCircle,
   ClipboardList,
-  Settings2,
 } from "lucide-react";
-import { AtsMode } from "@/actions/analyze-resume";
 import { cn } from "@/lib/utils";
 
 export interface UploadedFile {
@@ -30,13 +21,11 @@ export interface UploadedFile {
 interface ScreenerDropzoneProps {
   uploadedFile: UploadedFile | null;
   jobDescription: string;
-  atsMode: AtsMode;
   dropError: string | null;
   isLoading: boolean;
   onDrop: (accepted: File[], rejected: FileRejection[]) => void;
   onRemoveFile: (e: React.MouseEvent) => void;
   onJobDescriptionChange: (value: string) => void;
-  onAtsModeChange: (value: AtsMode) => void;
 }
 
 function SectionLabel({
@@ -50,16 +39,16 @@ function SectionLabel({
 }) {
   return (
     <div className="flex items-center gap-2.5 mb-3">
-      <div className="flex items-center justify-center w-7 h-7 rounded-md bg-zinc-800 border border-zinc-700">
-        <Icon className="w-3.5 h-3.5 text-zinc-300" />
+      <div className="flex items-center justify-center w-7 h-7 rounded-md bg-zinc-900 border border-zinc-800">
+        <Icon className="w-3.5 h-3.5 text-zinc-400" />
       </div>
-      <span className="text-sm font-semibold tracking-wide text-zinc-200 uppercase">
+      <span className="text-xs font-semibold tracking-widest text-zinc-500 uppercase">
         {label}
       </span>
       {optional && (
         <Badge
           variant="outline"
-          className="text-[10px] text-zinc-500 border-zinc-700 bg-transparent px-1.5 py-0 h-4"
+          className="text-[10px] text-zinc-600 border-zinc-800 bg-transparent px-1.5 py-0 h-4"
         >
           Optional
         </Badge>
@@ -80,24 +69,33 @@ function DropZoneContent({
   if (uploadedFile) {
     return (
       <div className="flex flex-col items-center gap-4 py-2">
-        <div className="relative flex items-center justify-center w-14 h-14 rounded-xl bg-zinc-800 border border-zinc-600">
-          <FileText className="w-6 h-6 text-white" />
-          <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+        {/* File icon with success indicator */}
+        <div className="relative">
+          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-700 shadow-xl">
+            <FileText className="w-7 h-7 text-zinc-300" />
+          </div>
+          <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
             <CheckCircle2 className="w-3 h-3 text-white" />
           </div>
         </div>
-        <div className="flex flex-col items-center gap-1">
-          <p className="text-sm font-medium text-white truncate max-w-[260px]">
+
+        <div className="flex flex-col items-center gap-1.5">
+          <p className="text-sm font-semibold text-white truncate max-w-[240px]">
             {uploadedFile.file.name}
           </p>
-          <p className="text-xs text-zinc-500">
-            {(uploadedFile.file.size / 1024).toFixed(1)} KB · PDF
-          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-zinc-600">
+              {(uploadedFile.file.size / 1024).toFixed(1)} KB
+            </span>
+            <span className="w-1 h-1 rounded-full bg-zinc-700" />
+            <span className="text-[11px] text-zinc-600">PDF</span>
+          </div>
         </div>
+
         <button
           type="button"
           onClick={onRemove}
-          className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-red-400 transition-colors duration-150 group"
+          className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-red-400 transition-colors duration-200 group"
         >
           <X className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform duration-200" />
           Remove file
@@ -107,68 +105,69 @@ function DropZoneContent({
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 py-2">
+    <div className="flex flex-col items-center gap-5 py-2">
+      {/* Upload icon container */}
       <div
         className={cn(
-          "flex items-center justify-center w-14 h-14 rounded-xl border transition-all duration-300",
+          "relative flex items-center justify-center w-16 h-16 rounded-2xl transition-all duration-500",
           isDragActive
-            ? "bg-white/10 border-white/40 scale-110"
-            : "bg-zinc-800/80 border-zinc-700"
+            ? "scale-110"
+            : "scale-100"
         )}
       >
-        <UploadCloud
+        {/* Glow ring behind icon */}
+        <div
           className={cn(
-            "w-6 h-6 transition-colors duration-300",
-            isDragActive ? "text-white" : "text-zinc-400"
+            "absolute inset-0 rounded-2xl transition-opacity duration-500",
+            isDragActive ? "opacity-100" : "opacity-0",
+            "bg-white/5 border border-white/20"
           )}
         />
+        <div
+          className={cn(
+            "absolute -inset-1 rounded-3xl blur-md transition-opacity duration-500",
+            isDragActive ? "opacity-30 bg-white" : "opacity-0"
+          )}
+        />
+        <div className="relative flex items-center justify-center w-full h-full rounded-2xl bg-zinc-900 border border-zinc-800">
+          <UploadCloud
+            className={cn(
+              "w-7 h-7 transition-colors duration-300",
+              isDragActive ? "text-white" : "text-zinc-500"
+            )}
+          />
+        </div>
       </div>
-      <div className="flex flex-col items-center gap-1.5">
-        <p className="text-sm font-medium text-zinc-200">
+
+      <div className="flex flex-col items-center gap-2">
+        <p
+          className={cn(
+            "text-sm font-semibold transition-colors duration-300",
+            isDragActive ? "text-white" : "text-zinc-300"
+          )}
+        >
           {isDragActive ? "Release to upload" : "Drop your resume here"}
         </p>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-zinc-600">
           or{" "}
-          <span className="text-white underline underline-offset-2 cursor-pointer">
+          <span className="text-zinc-400 underline underline-offset-2 cursor-pointer hover:text-white transition-colors duration-150">
             click to browse
           </span>
         </p>
-        <p className="text-[11px] text-zinc-600 mt-1">PDF · Max 5 MB</p>
+        <p className="text-[11px] text-zinc-700 mt-0.5">PDF · Max 5 MB</p>
       </div>
     </div>
   );
 }
 
-const ATS_MODE_META: Record<
-  AtsMode,
-  { label: string; description: string }
-> = {
-  legacy: {
-    label: "Legacy ATS (Strict Keyword Match)",
-    description: "Simulates Taleo/Workday — exact keyword matching, zero inference.",
-  },
-  modern: {
-    label: "Modern AI ATS (Semantic Match)",
-    description: "Simulates Greenhouse/Eightfold — evaluates meaning and impact.",
-  },
-  // general is intentionally omitted from the dropdown — it's the default
-  // when no JD is present and shouldn't be a user-selectable option.
-  general: {
-    label: "General Best Practices",
-    description: "Evaluates against universal resume standards.",
-  },
-};
-
 export function ScreenerDropzone({
   uploadedFile,
   jobDescription,
-  atsMode,
   dropError,
   isLoading,
   onDrop,
   onRemoveFile,
   onJobDescriptionChange,
-  onAtsModeChange,
 }: ScreenerDropzoneProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -183,30 +182,50 @@ export function ScreenerDropzone({
 
   return (
     <>
-      {/* Resume Drop Zone */}
+      {/* ── Resume Drop Zone ── */}
       <div>
         <SectionLabel icon={FileText} label="Resume" />
+
+        {/*
+          Gradient border trick: outer div provides the gradient background,
+          inner div sits on top with a 1px inset leaving the gradient visible as a border.
+        */}
         <div
-          {...getRootProps()}
           className={cn(
-            "relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-all duration-300 outline-none",
-            isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+            "p-px rounded-2xl transition-all duration-500",
             isDragActive
-              ? "border-white/60 bg-white/5 scale-[1.01]"
+              ? "bg-gradient-to-br from-white/40 via-white/10 to-white/5"
               : uploadedFile
-              ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-500/70"
+              ? "bg-gradient-to-br from-emerald-500/40 via-emerald-500/10 to-transparent"
               : dropError
-              ? "border-red-500/50 bg-red-500/5"
-              : "border-zinc-700 bg-zinc-900/40 hover:border-zinc-500 hover:bg-zinc-900/70"
+              ? "bg-gradient-to-br from-red-500/40 via-red-500/10 to-transparent"
+              : "bg-gradient-to-br from-zinc-700/60 via-zinc-800/30 to-transparent hover:from-zinc-600/60 hover:via-zinc-700/30"
           )}
         >
-          <input {...getInputProps()} />
-          <DropZoneContent
-            isDragActive={isDragActive}
-            uploadedFile={uploadedFile}
-            onRemove={onRemoveFile}
-          />
+          <div
+            {...getRootProps()}
+            className={cn(
+              "relative flex flex-col items-center justify-center rounded-[15px] p-8",
+              "outline-none transition-all duration-300 backdrop-blur-sm",
+              isLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+              isDragActive
+                ? "bg-white/[0.03]"
+                : uploadedFile
+                ? "bg-emerald-950/20"
+                : dropError
+                ? "bg-red-950/20"
+                : "bg-zinc-950/80 hover:bg-zinc-900/60"
+            )}
+          >
+            <input {...getInputProps()} />
+            <DropZoneContent
+              isDragActive={isDragActive}
+              uploadedFile={uploadedFile}
+              onRemove={onRemoveFile}
+            />
+          </div>
         </div>
+
         {dropError && (
           <div className="flex items-center gap-2 mt-3">
             <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
@@ -215,83 +234,44 @@ export function ScreenerDropzone({
         )}
       </div>
 
-      {/* Job Description */}
+      {/* ── Job Description ── */}
       <div>
         <SectionLabel icon={ClipboardList} label="Job Description" optional />
-        <Textarea
-          value={jobDescription}
-          onChange={(e) => onJobDescriptionChange(e.target.value)}
-          disabled={isLoading}
-          placeholder="Paste the job description for targeted ATS scoring…"
-          rows={7}
+
+        <div
           className={cn(
-            "resize-none bg-zinc-900/40 border-zinc-700 text-zinc-200 placeholder:text-zinc-600",
-            "text-sm leading-relaxed rounded-xl",
-            "focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:border-zinc-500",
-            "hover:border-zinc-600 transition-colors duration-150",
-            "disabled:opacity-60 disabled:cursor-not-allowed"
+            "p-px rounded-2xl transition-all duration-300",
+            hasJobDescription
+              ? "bg-gradient-to-br from-zinc-600/50 via-zinc-700/20 to-transparent"
+              : "bg-gradient-to-br from-zinc-800/60 via-zinc-800/20 to-transparent hover:from-zinc-700/60"
           )}
-        />
+        >
+          <Textarea
+            value={jobDescription}
+            onChange={(e) => onJobDescriptionChange(e.target.value)}
+            disabled={isLoading}
+            placeholder="Paste the job description to run a targeted dual-ATS comparison…"
+            rows={7}
+            className={cn(
+              "resize-none rounded-[15px] border-0 bg-zinc-950/90",
+              "text-sm text-zinc-200 leading-relaxed placeholder:text-zinc-700",
+              "focus-visible:ring-0 focus-visible:outline-none",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "transition-colors duration-150 backdrop-blur-sm"
+            )}
+          />
+        </div>
+
         {hasJobDescription && !isLoading && (
-          <p className="text-[11px] text-zinc-600 mt-1.5 text-right">
+          <p className="text-[11px] text-zinc-700 mt-2 text-right tabular-nums">
             {jobDescription.trim().split(/\s+/).length} words
           </p>
         )}
-      </div>
 
-      {/* ATS Mode Selector — only meaningful when a JD is provided */}
-      <div>
-        <SectionLabel icon={Settings2} label="ATS Simulator Mode" optional />
-        <Select
-          value={atsMode}
-          onValueChange={(val) => onAtsModeChange(val as AtsMode)}
-          disabled={!hasJobDescription || isLoading}
-        >
-          <SelectTrigger
-            className={cn(
-              "w-full rounded-xl border-zinc-700 bg-zinc-900/40 text-sm h-11",
-              "focus:ring-1 focus:ring-white/30 focus:border-zinc-500",
-              "transition-colors duration-150",
-              // Visually signal that this control is locked to the JD textarea
-              !hasJobDescription
-                ? "opacity-40 cursor-not-allowed text-zinc-600"
-                : "text-zinc-200 hover:border-zinc-600"
-            )}
-          >
-            <SelectValue placeholder="Select ATS mode…" />
-          </SelectTrigger>
-          <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-200">
-            <SelectItem
-              value="legacy"
-              className="focus:bg-zinc-800 focus:text-white cursor-pointer"
-            >
-              <div className="flex flex-col gap-0.5 py-0.5">
-                <span className="text-sm font-medium">
-                  {ATS_MODE_META.legacy.label}
-                </span>
-                <span className="text-[11px] text-zinc-500">
-                  {ATS_MODE_META.legacy.description}
-                </span>
-              </div>
-            </SelectItem>
-            <SelectItem
-              value="modern"
-              className="focus:bg-zinc-800 focus:text-white cursor-pointer"
-            >
-              <div className="flex flex-col gap-0.5 py-0.5">
-                <span className="text-sm font-medium">
-                  {ATS_MODE_META.modern.label}
-                </span>
-                <span className="text-[11px] text-zinc-500">
-                  {ATS_MODE_META.modern.description}
-                </span>
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Contextual hint — only shown when no JD is present */}
         {!hasJobDescription && (
-          <p className="text-[11px] text-zinc-600 mt-1.5">
-            Add a job description above to enable ATS mode selection.
+          <p className="text-[11px] text-zinc-700 mt-2 leading-relaxed">
+            Without a job description, a single general analysis will run instead of the dual comparison.
           </p>
         )}
       </div>

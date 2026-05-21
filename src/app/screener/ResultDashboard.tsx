@@ -9,103 +9,221 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
-  Sparkles,
-  CheckCircle2,
   TrendingUp,
   TrendingDown,
   Zap,
   RotateCcw,
-  Cpu,
+  Sparkles,
+  CheckCircle2,
   ScanSearch,
-  LayoutDashboard,
+  BrainCircuit,
+  Building2,
 } from "lucide-react";
-import { AtsAnalysisResult, AtsMode } from "@/actions/analyze-resume";
+import { AtsAnalysisResult } from "@/actions/analyze-resume";
 import { cn } from "@/lib/utils";
 
+// The two result shapes the dashboard can receive.
+// generalResult is used when no JD was provided.
+export type DashboardResults =
+  | {
+      mode: "comparison";
+      legacy: AtsAnalysisResult;
+      modern: AtsAnalysisResult;
+    }
+  | {
+      mode: "general";
+      general: AtsAnalysisResult;
+    };
+
 interface ResultDashboardProps {
-  data: AtsAnalysisResult;
-  atsMode: AtsMode;
+  results: DashboardResults;
   onReset: () => void;
 }
 
-function getScoreColor(score: number): {
-  stroke: string;
-  text: string;
-  bg: string;
-  label: string;
-} {
-  if (score >= 80)
-    return {
-      stroke: "#22c55e",
-      text: "text-emerald-400",
-      bg: "bg-emerald-500/10",
-      label: "Excellent",
-    };
-  if (score >= 60)
-    return {
-      stroke: "#eab308",
-      text: "text-yellow-400",
-      bg: "bg-yellow-500/10",
-      label: "Good",
-    };
-  return {
-    stroke: "#ef4444",
-    text: "text-red-400",
-    bg: "bg-red-500/10",
-    label: "Needs Work",
-  };
+// ─── Design tokens per column ────────────────────────────────────────────────
+
+const LEGACY_THEME = {
+  accent: "#f97316",         // orange-500
+  accentMuted: "#f9731620",
+  accentBorder: "#f9731630",
+  scoreText: "text-orange-400",
+  scoreLow: "text-red-400",
+  scoreMid: "text-amber-400",
+  scoreHigh: "text-orange-400",
+  headerGradient: "from-orange-950/40 via-zinc-900/0",
+  badgeBg: "bg-orange-500/10",
+  badgeBorder: "border-orange-500/25",
+  badgeText: "text-orange-400",
+  cardBorder: "border-orange-500/15",
+  cardBg: "bg-orange-950/10",
+  strengthBorder: "border-orange-500/20",
+  strengthBg: "bg-orange-500/5",
+  dot: "bg-orange-400",
+  weaknessBorder: "border-red-500/20",
+  weaknessBg: "bg-red-500/5",
+  weaknessDot: "bg-red-400",
+  actionBorder: "border-amber-500/20",
+  actionBg: "bg-amber-500/5",
+  numberBg: "bg-amber-400/10 text-amber-400 border-amber-400/25",
+  icon: ScanSearch,
+  columnLabel: "Legacy ATS Score",
+  columnSub: "Simulating strict keyword-parsing systems",
+  systemNames: "Taleo · Workday · SuccessFactors",
+  accordionTriggerHover: "hover:bg-orange-950/30",
+} as const;
+
+const MODERN_THEME = {
+  accent: "#818cf8",         // indigo-400
+  accentMuted: "#818cf820",
+  accentBorder: "#818cf830",
+  scoreText: "text-indigo-400",
+  scoreLow: "text-red-400",
+  scoreMid: "text-violet-400",
+  scoreHigh: "text-indigo-400",
+  headerGradient: "from-indigo-950/40 via-zinc-900/0",
+  badgeBg: "bg-indigo-500/10",
+  badgeBorder: "border-indigo-500/25",
+  badgeText: "text-indigo-400",
+  cardBorder: "border-indigo-500/15",
+  cardBg: "bg-indigo-950/10",
+  strengthBorder: "border-emerald-500/20",
+  strengthBg: "bg-emerald-500/5",
+  dot: "bg-emerald-400",
+  weaknessBorder: "border-red-500/20",
+  weaknessBg: "bg-red-500/5",
+  weaknessDot: "bg-red-400",
+  actionBorder: "border-indigo-500/20",
+  actionBg: "bg-indigo-500/5",
+  numberBg: "bg-indigo-400/10 text-indigo-400 border-indigo-400/25",
+  icon: BrainCircuit,
+  columnLabel: "Modern Semantic Score",
+  columnSub: "Simulating AI-driven semantic platforms",
+  systemNames: "Greenhouse · Lever · Eightfold",
+  accordionTriggerHover: "hover:bg-indigo-950/30",
+} as const;
+
+const GENERAL_THEME = {
+  accent: "#a1a1aa",
+  accentMuted: "#a1a1aa15",
+  accentBorder: "#a1a1aa25",
+  scoreText: "text-zinc-300",
+  scoreLow: "text-red-400",
+  scoreMid: "text-yellow-400",
+  scoreHigh: "text-emerald-400",
+  headerGradient: "from-zinc-800/40 via-zinc-900/0",
+  badgeBg: "bg-zinc-700/30",
+  badgeBorder: "border-zinc-600/30",
+  badgeText: "text-zinc-400",
+  cardBorder: "border-zinc-700/30",
+  cardBg: "bg-zinc-900/30",
+  strengthBorder: "border-emerald-500/20",
+  strengthBg: "bg-emerald-500/5",
+  dot: "bg-emerald-400",
+  weaknessBorder: "border-red-500/20",
+  weaknessBg: "bg-red-500/5",
+  weaknessDot: "bg-red-400",
+  actionBorder: "border-yellow-500/20",
+  actionBg: "bg-yellow-500/5",
+  numberBg: "bg-yellow-400/10 text-yellow-400 border-yellow-400/25",
+  icon: Sparkles,
+  columnLabel: "General ATS Analysis",
+  columnSub: "Evaluated against universal resume best practices",
+  systemNames: "",
+  accordionTriggerHover: "hover:bg-zinc-800/40",
+} as const;
+
+type ColumnTheme = typeof LEGACY_THEME;
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function getScoreTextClass(score: number, theme: ColumnTheme): string {
+  if (score >= 80) return theme.scoreHigh;
+  if (score >= 60) return theme.scoreMid;
+  return theme.scoreLow;
 }
 
-function ScoreRing({ score }: { score: number }) {
-  const { stroke, text, label } = getScoreColor(score);
-  const radius = 54;
+function getScoreStroke(score: number, theme: ColumnTheme): string {
+  if (score >= 80) return theme.accent;
+  if (score >= 60) return score >= 60 ? "#eab308" : theme.accent;
+  return "#ef4444";
+}
+
+function getScoreLabel(score: number): string {
+  if (score >= 80) return "Excellent";
+  if (score >= 60) return "Good";
+  if (score >= 40) return "Fair";
+  return "Poor";
+}
+
+function ScoreRing({
+  score,
+  theme,
+  size = "md",
+}: {
+  score: number;
+  theme: ColumnTheme;
+  size?: "sm" | "md";
+}) {
+  const radius = size === "sm" ? 42 : 50;
+  const svgSize = size === "sm" ? 100 : 116;
+  const strokeWidth = size === "sm" ? 9 : 10;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (score / 100) * circumference;
+  const stroke = getScoreStroke(score, theme);
+  const textClass = getScoreTextClass(score, theme);
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="relative w-36 h-36">
+    <div className="flex flex-col items-center gap-2">
+      <div
+        className={cn(
+          "relative",
+          size === "sm" ? "w-24 h-24" : "w-28 h-28"
+        )}
+      >
         <svg
           className="w-full h-full -rotate-90"
-          viewBox="0 0 128 128"
+          viewBox={`0 0 ${svgSize} ${svgSize}`}
           fill="none"
-          xmlns="http://www.w3.org/2000/svg"
         >
+          {/* Track */}
           <circle
-            cx="64"
-            cy="64"
+            cx={svgSize / 2}
+            cy={svgSize / 2}
             r={radius}
-            strokeWidth="10"
-            stroke="#27272a"
+            strokeWidth={strokeWidth}
+            stroke="#18181b"
             strokeLinecap="round"
           />
+          {/* Progress */}
           <circle
-            cx="64"
-            cy="64"
+            cx={svgSize / 2}
+            cy={svgSize / 2}
             r={radius}
-            strokeWidth="10"
+            strokeWidth={strokeWidth}
             stroke={stroke}
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={dashOffset}
             style={{
-              transition: "stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1)",
-              filter: `drop-shadow(0 0 8px ${stroke}80)`,
+              transition: "stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)",
+              filter: `drop-shadow(0 0 6px ${stroke}70)`,
             }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={cn("text-3xl font-bold tabular-nums", text)}>
+          <span className={cn("font-bold tabular-nums", textClass, size === "sm" ? "text-2xl" : "text-3xl")}>
             {score}
           </span>
-          <span className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">
+          <span className="text-[9px] text-zinc-600 uppercase tracking-widest">
             / 100
           </span>
         </div>
       </div>
-      <div className="flex flex-col items-center gap-1">
-        <span className={cn("text-sm font-semibold", text)}>{label}</span>
-        <span className="text-xs text-zinc-600">ATS Score</span>
+      <div className="flex flex-col items-center gap-0.5">
+        <span className={cn("text-xs font-semibold", textClass)}>
+          {getScoreLabel(score)}
+        </span>
+        <span className="text-[10px] text-zinc-600">ATS Score</span>
       </div>
     </div>
   );
@@ -114,236 +232,354 @@ function ScoreRing({ score }: { score: number }) {
 function InsightList({
   items,
   variant,
+  theme,
 }: {
   items: string[];
   variant: "strength" | "weakness" | "action";
+  theme: ColumnTheme;
 }) {
   const config = {
     strength: {
-      dotClass: "bg-emerald-500",
-      borderClass: "border-emerald-500/20",
-      bgClass: "bg-emerald-500/5",
+      border: theme.strengthBorder,
+      bg: theme.strengthBg,
+      dot: theme.dot,
     },
     weakness: {
-      dotClass: "bg-red-500",
-      borderClass: "border-red-500/20",
-      bgClass: "bg-red-500/5",
+      border: theme.weaknessBorder,
+      bg: theme.weaknessBg,
+      dot: theme.weaknessDot,
     },
     action: {
-      dotClass: "bg-yellow-400",
-      borderClass: "border-yellow-500/20",
-      bgClass: "bg-yellow-500/5",
+      border: theme.actionBorder,
+      bg: theme.actionBg,
+      dot: "",
     },
   }[variant];
 
   return (
-    <ul className="flex flex-col gap-2.5">
+    <ul className="flex flex-col gap-2">
       {items.map((item, i) => (
         <li
           key={i}
           className={cn(
-            "flex items-start gap-3 rounded-lg border p-3.5 transition-colors",
-            config.borderClass,
-            config.bgClass
+            "flex items-start gap-3 rounded-lg border p-3 transition-colors",
+            config.border,
+            config.bg
           )}
         >
           {variant === "action" ? (
-            <span className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0 mt-0.5 bg-yellow-400/20 text-yellow-400 border border-yellow-400/30">
+            <span
+              className={cn(
+                "flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0 mt-0.5 border",
+                theme.numberBg
+              )}
+            >
               {i + 1}
             </span>
           ) : (
             <div
               className={cn(
-                "w-1.5 h-1.5 rounded-full shrink-0 mt-2",
-                config.dotClass
+                "w-1.5 h-1.5 rounded-full shrink-0 mt-[7px]",
+                config.dot
               )}
             />
           )}
-          <span className="text-sm text-zinc-300 leading-relaxed">{item}</span>
+          <span className="text-xs text-zinc-400 leading-relaxed">{item}</span>
         </li>
       ))}
     </ul>
   );
 }
 
-// Maps each mode to the badge's visual treatment and copy.
-const ATS_MODE_BADGE_CONFIG: Record<
-  AtsMode,
-  {
-    icon: React.ElementType;
-    label: string;
-    className: string;
-  }
-> = {
-  legacy: {
-    icon: ScanSearch,
-    label: "Legacy ATS — Strict Keyword Match",
-    className:
-      "bg-orange-500/10 text-orange-400 border-orange-500/30",
-  },
-  modern: {
-    icon: Cpu,
-    label: "Modern AI ATS — Semantic Match",
-    className:
-      "bg-violet-500/10 text-violet-400 border-violet-500/30",
-  },
-  general: {
-    icon: LayoutDashboard,
-    label: "General Best Practices",
-    className:
-      "bg-zinc-700/40 text-zinc-400 border-zinc-600/40",
-  },
-};
+// A single complete column — score ring + all three accordions.
+function ResultColumn({
+  data,
+  theme,
+  defaultOpen = true,
+}: {
+  data: AtsAnalysisResult;
+  theme: ColumnTheme;
+  defaultOpen?: boolean;
+}) {
+  const Icon = theme.icon;
 
-function AtsModeIndicator({ mode }: { mode: AtsMode }) {
-  const { icon: Icon, label, className } = ATS_MODE_BADGE_CONFIG[mode];
+  const scoreTierLabel =
+    data.atsScore >= 80
+      ? "Strong candidate profile"
+      : data.atsScore >= 60
+      ? "Competitive with improvements"
+      : data.atsScore >= 40
+      ? "Significant gaps to address"
+      : "High rejection risk";
 
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1.5 self-start rounded-full border px-2.5 py-1 text-[11px] font-medium",
-        className
+        "flex flex-col rounded-2xl border overflow-hidden",
+        theme.cardBorder,
+        theme.cardBg
       )}
     >
-      <Icon className="w-3 h-3" />
-      {label}
-    </div>
-  );
-}
-
-export function ResultDashboard({
-  data,
-  atsMode,
-  onReset,
-}: ResultDashboardProps) {
-  const { bg } = getScoreColor(data.atsScore);
-
-  return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Score header + summary */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">
-        <div className="flex flex-col sm:flex-row items-center gap-6">
-          <ScoreRing score={data.atsScore} />
-          <div className="flex-1 flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-zinc-400" />
-                <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
-                  AI Analysis
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={onReset}
-                className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
-              >
-                <RotateCcw className="w-3 h-3" />
-                Reset
-              </button>
-            </div>
-
-            <p className="text-sm text-zinc-300 leading-relaxed">
-              {data.summary}
-            </p>
-
-            {/* Score tier pill */}
+      {/* Column header */}
+      <div
+        className={cn(
+          "flex flex-col gap-4 px-5 pt-5 pb-4 border-b bg-gradient-to-b",
+          theme.headerGradient,
+          theme.cardBorder
+        )}
+      >
+        {/* Engine label row */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <div
-              className={cn(
-                "inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-[11px] font-medium",
-                bg,
-                data.atsScore >= 80
-                  ? "text-emerald-400"
-                  : data.atsScore >= 60
-                  ? "text-yellow-400"
-                  : "text-red-400"
-              )}
+              className="flex items-center justify-center w-7 h-7 rounded-lg border"
+              style={{
+                backgroundColor: theme.accentMuted,
+                borderColor: theme.accentBorder,
+              }}
             >
-              <CheckCircle2 className="w-3 h-3" />
-              {data.atsScore >= 80
-                ? "Strong candidate profile"
-                : data.atsScore >= 60
-                ? "Competitive with improvements"
-                : "Significant improvements needed"}
+              <Icon className="w-3.5 h-3.5" style={{ color: theme.accent }} />
             </div>
-
-            {/* Which ATS engine produced this score */}
-            <AtsModeIndicator mode={atsMode} />
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-zinc-200 leading-tight">
+                {theme.columnLabel}
+              </span>
+              <span className="text-[10px] text-zinc-600 leading-tight mt-0.5">
+                {theme.columnSub}
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* System names badge */}
+        {theme.systemNames && (
+          <div className="flex items-center gap-1.5">
+            <Building2 className="w-3 h-3 text-zinc-700 shrink-0" />
+            <span className="text-[10px] text-zinc-600 font-medium">
+              {theme.systemNames}
+            </span>
+          </div>
+        )}
+
+        {/* Score ring + summary */}
+        <div className="flex flex-col items-center gap-4 py-2">
+          <ScoreRing score={data.atsScore} theme={theme} size="sm" />
+
+          {/* Tier pill */}
+          <div
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+              theme.badgeBg,
+              theme.badgeBorder,
+              theme.badgeText
+            )}
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            {scoreTierLabel}
+          </div>
+        </div>
+
+        {/* Summary */}
+        <p className="text-xs text-zinc-500 leading-relaxed pb-1">
+          {data.summary}
+        </p>
       </div>
 
-      {/* Detail accordion */}
+      {/* Accordions */}
       <Accordion
         type="multiple"
-        defaultValue={["strengths", "weaknesses", "actions"]}
-        className="flex flex-col gap-3"
+        defaultValue={
+          defaultOpen ? ["strengths", "weaknesses", "actions"] : []
+        }
+        className="flex flex-col divide-y divide-zinc-800/60"
       >
-        <AccordionItem
-          value="strengths"
-          className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden px-0"
-        >
-          <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-zinc-800/30 transition-colors [&>svg]:text-zinc-500">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-              </div>
-              <span className="text-sm font-semibold text-zinc-200">
+        <AccordionItem value="strengths" className="border-0 px-0">
+          <AccordionTrigger
+            className={cn(
+              "px-5 py-3.5 hover:no-underline transition-colors [&>svg]:text-zinc-600 [&>svg]:w-3.5 [&>svg]:h-3.5",
+              theme.accordionTriggerHover
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-xs font-semibold text-zinc-300">
                 Strengths
               </span>
-              <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 h-4">
+              <Badge
+                className={cn(
+                  "text-[9px] px-1.5 h-3.5 border",
+                  "bg-emerald-500/10 text-emerald-500 border-emerald-500/25"
+                )}
+              >
                 {data.strengths.length}
               </Badge>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-5 pb-5 pt-1">
-            <InsightList items={data.strengths} variant="strength" />
+          <AccordionContent className="px-5 pb-4 pt-1">
+            <InsightList items={data.strengths} variant="strength" theme={theme} />
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem
-          value="weaknesses"
-          className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden px-0"
-        >
-          <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-zinc-800/30 transition-colors [&>svg]:text-zinc-500">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-md bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-                <TrendingDown className="w-3.5 h-3.5 text-red-400" />
-              </div>
-              <span className="text-sm font-semibold text-zinc-200">
-                Weaknesses & Gaps
+        <AccordionItem value="weaknesses" className="border-0 px-0">
+          <AccordionTrigger
+            className={cn(
+              "px-5 py-3.5 hover:no-underline transition-colors [&>svg]:text-zinc-600 [&>svg]:w-3.5 [&>svg]:h-3.5",
+              theme.accordionTriggerHover
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+              <span className="text-xs font-semibold text-zinc-300">
+                Weaknesses
               </span>
-              <Badge className="bg-red-500/10 text-red-400 border-red-500/30 text-[10px] px-1.5 h-4">
+              <Badge
+                className={cn(
+                  "text-[9px] px-1.5 h-3.5 border",
+                  "bg-red-500/10 text-red-500 border-red-500/25"
+                )}
+              >
                 {data.weaknesses.length}
               </Badge>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-5 pb-5 pt-1">
-            <InsightList items={data.weaknesses} variant="weakness" />
+          <AccordionContent className="px-5 pb-4 pt-1">
+            <InsightList items={data.weaknesses} variant="weakness" theme={theme} />
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem
-          value="actions"
-          className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden px-0"
-        >
-          <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-zinc-800/30 transition-colors [&>svg]:text-zinc-500">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-md bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center">
-                <Zap className="w-3.5 h-3.5 text-yellow-400" />
-              </div>
-              <span className="text-sm font-semibold text-zinc-200">
+        <AccordionItem value="actions" className="border-0 px-0">
+          <AccordionTrigger
+            className={cn(
+              "px-5 py-3.5 hover:no-underline transition-colors [&>svg]:text-zinc-600 [&>svg]:w-3.5 [&>svg]:h-3.5",
+              theme.accordionTriggerHover
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5" style={{ color: theme.accent }} />
+              <span className="text-xs font-semibold text-zinc-300">
                 Action Plan
               </span>
-              <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30 text-[10px] px-1.5 h-4">
+              <Badge
+                className={cn(
+                  "text-[9px] px-1.5 h-3.5 border",
+                  theme.badgeBg,
+                  theme.badgeText,
+                  theme.badgeBorder
+                )}
+              >
                 {data.actionableSteps.length}
               </Badge>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-5 pb-5 pt-1">
-            <InsightList items={data.actionableSteps} variant="action" />
+          <AccordionContent className="px-5 pb-4 pt-1">
+            <InsightList items={data.actionableSteps} variant="action" theme={theme} />
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+    </div>
+  );
+}
+
+// Delta badge shown in the comparison header when both scores exist.
+function ScoreDelta({ legacy, modern }: { legacy: number; modern: number }) {
+  const delta = modern - legacy;
+  const abs = Math.abs(delta);
+
+  if (abs < 2) {
+    return (
+      <span className="text-[11px] text-zinc-600 font-medium">
+        Scores within margin
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] text-zinc-600">
+        Modern scores{" "}
+        <span
+          className={cn(
+            "font-semibold",
+            delta > 0 ? "text-indigo-400" : "text-orange-400"
+          )}
+        >
+          {delta > 0 ? "+" : "−"}
+          {abs} pts
+        </span>{" "}
+        {delta > 0 ? "higher" : "lower"}
+      </span>
+    </div>
+  );
+}
+
+// ─── Root export ──────────────────────────────────────────────────────────────
+
+export function ResultDashboard({ results, onReset }: ResultDashboardProps) {
+  if (results.mode === "general") {
+    return (
+      <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <DashboardHeader onReset={onReset} isComparison={false} />
+        <ResultColumn
+          data={results.general}
+          theme={GENERAL_THEME}
+          defaultOpen
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <DashboardHeader
+        onReset={onReset}
+        isComparison
+        legacy={results.legacy.atsScore}
+        modern={results.modern.atsScore}
+      />
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <ResultColumn data={results.legacy} theme={LEGACY_THEME} defaultOpen />
+        <ResultColumn data={results.modern} theme={MODERN_THEME} defaultOpen />
+      </div>
+    </div>
+  );
+}
+
+function DashboardHeader({
+  onReset,
+  isComparison,
+  legacy,
+  modern,
+}: {
+  onReset: () => void;
+  isComparison: boolean;
+  legacy?: number;
+  modern?: number;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800">
+          <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-bold text-zinc-200">
+            {isComparison ? "Dual ATS Comparison" : "ATS Analysis"}
+          </span>
+          {isComparison && legacy !== undefined && modern !== undefined && (
+            <ScoreDelta legacy={legacy} modern={modern} />
+          )}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onReset}
+        className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors shrink-0"
+      >
+        <RotateCcw className="w-3 h-3" />
+        Reset
+      </button>
     </div>
   );
 }
