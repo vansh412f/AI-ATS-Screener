@@ -242,14 +242,18 @@ export function ScreenerDropzone({
             disabled={isLoading}
             placeholder="Paste the job description for a targeted dual-ATS comparison…"
             className={cn(
-              // Fixed height with internal scroll — prevents the left column
-              // from growing unpredictably as the user types.
               "h-40 overflow-y-auto",
               "resize-none rounded-[15px] border-0 bg-zinc-950/90",
               "text-sm text-zinc-200 leading-relaxed placeholder:text-zinc-700",
               "focus-visible:ring-0 focus-visible:outline-none",
               "disabled:opacity-50 disabled:cursor-not-allowed",
-              "transition-colors duration-150 backdrop-blur-sm"
+              "transition-colors duration-150 backdrop-blur-sm",
+              // ── Custom Dark Mode Scrollbar ──
+              "[&::-webkit-scrollbar]:w-2",
+              "[&::-webkit-scrollbar-track]:bg-transparent",
+              "[&::-webkit-scrollbar-thumb]:bg-zinc-800",
+              "[&::-webkit-scrollbar-thumb]:rounded-full",
+              "hover:[&::-webkit-scrollbar-thumb]:bg-zinc-700"
             )}
           />
         </div>
