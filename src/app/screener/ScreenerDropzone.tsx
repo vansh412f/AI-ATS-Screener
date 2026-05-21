@@ -248,7 +248,6 @@ export function ScreenerDropzone({
               "focus-visible:ring-0 focus-visible:outline-none",
               "disabled:opacity-50 disabled:cursor-not-allowed",
               "transition-colors duration-150 backdrop-blur-sm",
-              // ── Custom Dark Mode Scrollbar ──
               "[&::-webkit-scrollbar]:w-2",
               "[&::-webkit-scrollbar-track]:bg-transparent",
               "[&::-webkit-scrollbar-thumb]:bg-zinc-800",
