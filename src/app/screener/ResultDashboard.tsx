@@ -281,9 +281,7 @@ function ScoreCard({
   );
 }
 
-// Unified insights section fed from the modern result.
-// Modern is more holistic, so its strengths/weaknesses/actions are
-// the most useful for actual candidate improvement.
+// Modern is more holistic, so its strengths/weaknesses/actions are the most useful for actual candidate improvement.
 function UnifiedInsights({ data }: { data: AtsAnalysisResult }) {
   return (
     <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/20 overflow-hidden">
