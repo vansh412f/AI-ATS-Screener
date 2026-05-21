@@ -14,10 +14,7 @@ import {
   BrainCircuit,
 } from "lucide-react";
 import { parsePdf, ParsePdfResult } from "@/actions/parse-pdf";
-import {
-  analyzeResumeAction,
-  AtsAnalysisResult,
-} from "@/actions/analyze-resume";
+import { analyzeResumeAction } from "@/actions/analyze-resume";
 import {
   ScreenerDropzone,
   UploadedFile,
@@ -30,39 +27,7 @@ import { cn } from "@/lib/utils";
 
 type LoadingPhase = "idle" | "parsing" | "analyzing";
 
-// ─── Small local components ───────────────────────────────────────────────────
-
-function PipelineStep({
-  label,
-  status,
-}: {
-  label: string;
-  status: "pending" | "active" | "done";
-}) {
-  return (
-    <div className="flex items-center gap-2.5">
-      {status === "done" ? (
-        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-      ) : status === "active" ? (
-        <Loader2 className="w-3.5 h-3.5 text-white animate-spin shrink-0" />
-      ) : (
-        <div className="w-3.5 h-3.5 rounded-full border border-zinc-800 shrink-0" />
-      )}
-      <span
-        className={cn(
-          "text-xs",
-          status === "done"
-            ? "text-emerald-400"
-            : status === "active"
-            ? "text-zinc-300"
-            : "text-zinc-700"
-        )}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
+// ─── Local UI primitives ──────────────────────────────────────────────────────
 
 function ErrorPanel({
   message,
@@ -72,11 +37,13 @@ function ErrorPanel({
   onReset: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-red-500/20 bg-red-950/10 p-5 animate-in fade-in duration-300">
-      <div className="flex items-start gap-3 mb-4">
-        <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+    <div className="rounded-2xl border border-red-500/20 bg-red-950/10 p-6 animate-in fade-in duration-300">
+      <div className="flex items-start gap-3 mb-5">
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 shrink-0">
+          <AlertCircle className="w-4 h-4 text-red-400" />
+        </div>
         <div>
-          <p className="text-sm font-semibold text-red-300 mb-1">
+          <p className="text-sm font-semibold text-red-300 mb-1.5">
             Analysis Failed
           </p>
           <p className="text-xs text-red-400/70 leading-relaxed">{message}</p>
@@ -115,7 +82,6 @@ function EmptyState() {
           </p>
         </div>
 
-        {/* Feature preview */}
         <div className="grid grid-cols-2 gap-3 mt-1 w-full max-w-sm">
           <div className="flex flex-col gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-3 text-left">
             <ScanSearch className="w-4 h-4 text-orange-500/60" />
@@ -157,29 +123,115 @@ function EmptyState() {
   );
 }
 
+// The right column becomes the dedicated loading screen — pipeline steps
+// live here so the left column stays clean and stable during analysis.
 function LoadingState({ phase }: { phase: LoadingPhase }) {
+  const steps: {
+    label: string;
+    sub: string;
+    status: "pending" | "active" | "done";
+  }[] = [
+    {
+      label: "Extracting PDF text",
+      sub: "Parsing document structure in memory",
+      status:
+        phase === "parsing"
+          ? "active"
+          : phase === "analyzing"
+          ? "done"
+          : "pending",
+    },
+    {
+      label: "Legacy ATS scoring",
+      sub: "Strict keyword & formatting analysis",
+      status: phase === "analyzing" ? "active" : "pending",
+    },
+    {
+      label: "Modern AI ATS scoring",
+      sub: "Semantic alignment & impact evaluation",
+      status: phase === "analyzing" ? "active" : "pending",
+    },
+  ];
+
   return (
-    <div className="rounded-2xl border border-zinc-900 bg-zinc-950/50 overflow-hidden">
+    <div className="rounded-2xl border border-zinc-900 bg-zinc-950/50 overflow-hidden animate-in fade-in duration-300">
       <div className="px-5 py-4 border-b border-zinc-900">
         <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
           ATS Report
         </span>
       </div>
-      <div className="flex flex-col items-center gap-6 px-8 py-14">
-        <div className="relative w-14 h-14 flex items-center justify-center">
+
+      <div className="flex flex-col items-center gap-8 px-8 py-14">
+        {/* Spinner */}
+        <div className="relative w-16 h-16 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full border border-zinc-800" />
           <div className="absolute inset-0 rounded-full border border-t-zinc-400 animate-spin" />
           <Sparkles className="w-5 h-5 text-zinc-600" />
         </div>
+
+        {/* Status copy */}
         <div className="text-center">
           <p className="text-sm text-zinc-300 font-medium">
-            {phase === "parsing" ? "Reading your resume…" : "Running dual ATS analysis…"}
+            {phase === "parsing"
+              ? "Reading your resume…"
+              : "Running dual ATS analysis…"}
           </p>
           <p className="text-xs text-zinc-600 mt-1">
             {phase === "parsing"
               ? "Extracting text in memory"
-              : "Scoring against legacy & modern engines simultaneously"}
+              : "Scoring against both engines simultaneously"}
           </p>
+        </div>
+
+        {/* Pipeline steps — moved here from the left column */}
+        <div className="w-full max-w-xs flex flex-col gap-3">
+          {steps.map((step) => (
+            <div
+              key={step.label}
+              className={cn(
+                "flex items-start gap-3 rounded-xl border p-3.5 transition-colors duration-300",
+                step.status === "active"
+                  ? "border-zinc-700 bg-zinc-900/60"
+                  : step.status === "done"
+                  ? "border-zinc-800/60 bg-zinc-900/30"
+                  : "border-zinc-900 bg-transparent"
+              )}
+            >
+              <div className="mt-0.5 shrink-0">
+                {step.status === "done" ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                ) : step.status === "active" ? (
+                  <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                ) : (
+                  <div className="w-3.5 h-3.5 rounded-full border border-zinc-800" />
+                )}
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span
+                  className={cn(
+                    "text-xs font-medium",
+                    step.status === "done"
+                      ? "text-emerald-400"
+                      : step.status === "active"
+                      ? "text-zinc-200"
+                      : "text-zinc-700"
+                  )}
+                >
+                  {step.label}
+                </span>
+                <span
+                  className={cn(
+                    "text-[10px] leading-relaxed",
+                    step.status === "active"
+                      ? "text-zinc-500"
+                      : "text-zinc-700"
+                  )}
+                >
+                  {step.sub}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -261,7 +313,9 @@ export default function ScreenerPage() {
       parseResult = await parsePdf(formData);
     } catch (err) {
       setErrorMessage(
-        err instanceof Error ? err.message : "A network error occurred during PDF parsing."
+        err instanceof Error
+          ? err.message
+          : "A network error occurred during PDF parsing."
       );
       setLoadingPhase("idle");
       return;
@@ -276,34 +330,11 @@ export default function ScreenerPage() {
     setLoadingPhase("analyzing");
 
     const resumeText = parseResult.text;
+    // Pass null when no JD — the backend handles both modes gracefully with
+    // null, falling back to general best-practices scoring internally.
     const jdText = parseResult.jobDescription ?? null;
 
-    if (!trimmedJd) {
-      // No JD provided — a dual comparison makes no sense without a target role.
-      // Fall back to a single general analysis.
-      let result: Awaited<ReturnType<typeof analyzeResumeAction>>;
-      try {
-        result = await analyzeResumeAction(resumeText, null, "general");
-      } catch (err) {
-        setErrorMessage(
-          err instanceof Error ? err.message : "A network error occurred during analysis."
-        );
-        setLoadingPhase("idle");
-        return;
-      }
-
-      setLoadingPhase("idle");
-
-      if (!result.success) {
-        setErrorMessage(result.error);
-        return;
-      }
-
-      setDashboardResults({ mode: "general", general: result.data });
-      return;
-    }
-
-    // JD is present — fire both engines in parallel.
+    // Always fire both engines in parallel regardless of JD presence.
     let legacyResult: Awaited<ReturnType<typeof analyzeResumeAction>>;
     let modernResult: Awaited<ReturnType<typeof analyzeResumeAction>>;
 
@@ -314,7 +345,9 @@ export default function ScreenerPage() {
       ]);
     } catch (err) {
       setErrorMessage(
-        err instanceof Error ? err.message : "A network error occurred during analysis."
+        err instanceof Error
+          ? err.message
+          : "A network error occurred during analysis."
       );
       setLoadingPhase("idle");
       return;
@@ -322,7 +355,7 @@ export default function ScreenerPage() {
 
     setLoadingPhase("idle");
 
-    // Surface whichever call failed, preferring legacy arbitrarily.
+    // Surface whichever call failed — prefer legacy error arbitrarily if both fail.
     if (!legacyResult.success) {
       setErrorMessage(legacyResult.error);
       return;
@@ -333,7 +366,6 @@ export default function ScreenerPage() {
     }
 
     setDashboardResults({
-      mode: "comparison",
       legacy: legacyResult.data,
       modern: modernResult.data,
     });
@@ -345,31 +377,51 @@ export default function ScreenerPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Page header */}
-      <div className="border-b border-zinc-900 bg-black/80 backdrop-blur-md sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white shrink-0">
-              <Sparkles className="w-4 h-4 text-black" />
+      <div className="max-w-6xl mx-auto px-6 py-12">
+
+        {/* ── Hero heading ── */}
+        <div className="flex flex-col items-center text-center gap-3 mb-14">
+          <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-3.5 py-1.5 mb-1">
+            <Sparkles className="w-3 h-3 text-zinc-400" />
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+              AI-Powered ATS Simulator
+            </span>
+          </div>
+
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white leading-tight">
+            Resume Screener
+          </h1>
+
+          <p className="text-sm text-zinc-500 leading-relaxed max-w-md">
+            Upload your resume to receive a simultaneous score from both a{" "}
+            <span className="text-orange-400/80 font-medium">
+              legacy keyword-based ATS
+            </span>{" "}
+            and a{" "}
+            <span className="text-indigo-400/80 font-medium">
+              modern AI semantic engine
+            </span>
+            .
+          </p>
+
+          <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+              <ScanSearch className="w-3 h-3 text-orange-500/50" />
+              Taleo · Workday · SuccessFactors
             </div>
-            <div>
-              <h1 className="text-base font-bold tracking-tight text-white leading-tight">
-                Resume Screener
-              </h1>
-              <p className="text-[11px] text-zinc-600 leading-tight">
-                Dual ATS engine comparison — Legacy & Modern AI systems
-              </p>
+            <span className="text-zinc-800">·</span>
+            <div className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+              <BrainCircuit className="w-3 h-3 text-indigo-500/50" />
+              Greenhouse · Lever · Eightfold
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main layout */}
-      <div className="max-w-6xl mx-auto px-6 py-10">
+        {/* ── Main grid ── */}
         <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8 items-start">
 
-          {/* ── Left: Inputs ── */}
-          <div className="flex flex-col gap-6 lg:sticky lg:top-24">
+          {/* Left column — sticky input panel */}
+          <div className="flex flex-col gap-6 lg:sticky lg:top-8">
             <ScreenerDropzone
               uploadedFile={uploadedFile}
               jobDescription={jobDescription}
@@ -380,7 +432,6 @@ export default function ScreenerPage() {
               onJobDescriptionChange={setJobDescription}
             />
 
-            {/* Analyze button */}
             <Button
               onClick={handleSubmit}
               disabled={!canSubmit}
@@ -401,41 +452,13 @@ export default function ScreenerPage() {
               ) : (
                 <span className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4" />
-                  {jobDescription.trim()
-                    ? "Run Dual ATS Analysis"
-                    : "Analyze Resume"}
+                  Run Dual ATS Analysis
                 </span>
               )}
             </Button>
-
-            {/* Pipeline status */}
-            {isLoading && (
-              <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
-                <div className="flex flex-col gap-2.5">
-                  <PipelineStep
-                    label="Extracting PDF text"
-                    status={
-                      loadingPhase === "parsing"
-                        ? "active"
-                        : loadingPhase === "analyzing"
-                        ? "done"
-                        : "pending"
-                    }
-                  />
-                  <PipelineStep
-                    label="Legacy ATS scoring"
-                    status={loadingPhase === "analyzing" ? "active" : "pending"}
-                  />
-                  <PipelineStep
-                    label="Modern AI ATS scoring"
-                    status={loadingPhase === "analyzing" ? "active" : "pending"}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* ── Right: Results ── */}
+          {/* Right column — results / loading / empty */}
           <div>
             {showEmptyState && <EmptyState />}
             {isLoading && <LoadingState phase={loadingPhase} />}

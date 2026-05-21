@@ -35,8 +35,7 @@ const ATS_RESPONSE_SCHEMA = {
     },
     weaknesses: {
       type: SchemaType.ARRAY,
-      description:
-        "3 to 4 missing skills, ATS red flags, or formatting issues.",
+      description: "3 to 4 missing skills, ATS red flags, or formatting issues.",
       items: { type: SchemaType.STRING },
     },
     actionableSteps: {
@@ -55,9 +54,6 @@ const ATS_RESPONSE_SCHEMA = {
   ],
 };
 
-// Each mode gets its own persona and scoring lens. The persona primes the
-// model's "character" before it sees the resume, and the criteria section
-// tells it exactly what to reward or punish.
 const ATS_MODE_CONFIGS: Record<
   AtsMode,
   { persona: string; criteria: string; scoringGuide: string }
@@ -136,8 +132,6 @@ function buildPrompt(
 ): string {
   const config = ATS_MODE_CONFIGS[atsMode];
 
-  // The JD section is only injected for modes where it's meaningful.
-  // A "general" analysis with no JD skips this block entirely.
   const jdSection =
     jobDescription && atsMode !== "general"
       ? `--- Target Job Description ---
@@ -206,17 +200,8 @@ export async function analyzeResumeAction(
   if (!trimmedText || trimmedText.length < 50) {
     return {
       success: false,
-      error:
-        "Resume text is too short to analyze. Please upload a complete resume.",
+      error: "Resume text is too short to analyze. Please upload a complete resume.",
     };
-  }
-
-  // Warn callers at runtime if they pass a JD with "general" mode — it'll be
-  // silently ignored by buildPrompt and that can cause confusing results.
-  if (atsMode === "general" && jobDescription) {
-    console.warn(
-      '[analyzeResumeAction] atsMode is "general" but a jobDescription was provided. The JD will be ignored.'
-    );
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -225,8 +210,6 @@ export async function analyzeResumeAction(
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: ATS_RESPONSE_SCHEMA,
-      // Slightly higher temp for modern/general so the semantic analysis feels
-      // less mechanical. Legacy stays cold and algorithmic.
       temperature: atsMode === "legacy" ? 0.1 : 0.2,
     },
   });
@@ -243,15 +226,18 @@ export async function analyzeResumeAction(
     if (message.includes("API_KEY_INVALID") || message.includes("403")) {
       return {
         success: false,
-        error: "Invalid Gemini API key. Please check your GEMINI_API_KEY.",
+        error: "Invalid API key configuration. Please contact support.",
       };
     }
+
     if (message.includes("RESOURCE_EXHAUSTED") || message.includes("429")) {
       return {
         success: false,
-        error: "Gemini API rate limit reached. Please try again in a moment.",
+        error:
+          "Our analysis engine has reached its request limit. Please wait a moment and try again.",
       };
     }
+
     if (message.includes("SAFETY")) {
       return {
         success: false,
@@ -260,7 +246,29 @@ export async function analyzeResumeAction(
       };
     }
 
-    return { success: false, error: `Gemini API error: ${message}` };
+    // 503, 500, overloaded, or any other upstream failure — surface a clean
+    // high-traffic message so the user never sees a raw provider error string.
+    if (
+      message.includes("503") ||
+      message.includes("500") ||
+      message.includes("overloaded") ||
+      message.includes("high demand") ||
+      message.includes("unavailable") ||
+      message.includes("UNAVAILABLE")
+    ) {
+      return {
+        success: false,
+        error:
+          "Our semantic evaluation servers are currently experiencing peak traffic volume. Please wait a moment and try again.",
+      };
+    }
+
+    // Last-resort fallback — still no raw provider details exposed.
+    return {
+      success: false,
+      error:
+        "Our evaluation pipeline encountered an unexpected issue. Please try again shortly.",
+    };
   }
 
   const cleaned = rawResponseText
@@ -274,14 +282,14 @@ export async function analyzeResumeAction(
   } catch {
     return {
       success: false,
-      error: "Gemini returned an unexpected response format. Please try again.",
+      error: "The analysis returned an unexpected format. Please try again.",
     };
   }
 
   if (!isValidAtsResult(parsed)) {
     return {
       success: false,
-      error: "Gemini response was missing required fields. Please try again.",
+      error: "The analysis response was incomplete. Please try again.",
     };
   }
 

@@ -69,7 +69,6 @@ function DropZoneContent({
   if (uploadedFile) {
     return (
       <div className="flex flex-col items-center gap-4 py-2">
-        {/* File icon with success indicator */}
         <div className="relative">
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-700 shadow-xl">
             <FileText className="w-7 h-7 text-zinc-300" />
@@ -106,21 +105,18 @@ function DropZoneContent({
 
   return (
     <div className="flex flex-col items-center gap-5 py-2">
-      {/* Upload icon container */}
       <div
         className={cn(
           "relative flex items-center justify-center w-16 h-16 rounded-2xl transition-all duration-500",
-          isDragActive
-            ? "scale-110"
-            : "scale-100"
+          isDragActive ? "scale-110" : "scale-100"
         )}
       >
-        {/* Glow ring behind icon */}
         <div
           className={cn(
             "absolute inset-0 rounded-2xl transition-opacity duration-500",
-            isDragActive ? "opacity-100" : "opacity-0",
-            "bg-white/5 border border-white/20"
+            isDragActive
+              ? "opacity-100 bg-white/5 border border-white/20"
+              : "opacity-0"
           )}
         />
         <div
@@ -185,11 +181,6 @@ export function ScreenerDropzone({
       {/* ── Resume Drop Zone ── */}
       <div>
         <SectionLabel icon={FileText} label="Resume" />
-
-        {/*
-          Gradient border trick: outer div provides the gradient background,
-          inner div sits on top with a 1px inset leaving the gradient visible as a border.
-        */}
         <div
           className={cn(
             "p-px rounded-2xl transition-all duration-500",
@@ -237,7 +228,6 @@ export function ScreenerDropzone({
       {/* ── Job Description ── */}
       <div>
         <SectionLabel icon={ClipboardList} label="Job Description" optional />
-
         <div
           className={cn(
             "p-px rounded-2xl transition-all duration-300",
@@ -250,9 +240,11 @@ export function ScreenerDropzone({
             value={jobDescription}
             onChange={(e) => onJobDescriptionChange(e.target.value)}
             disabled={isLoading}
-            placeholder="Paste the job description to run a targeted dual-ATS comparison…"
-            rows={7}
+            placeholder="Paste the job description for a targeted dual-ATS comparison…"
             className={cn(
+              // Fixed height with internal scroll — prevents the left column
+              // from growing unpredictably as the user types.
+              "h-40 overflow-y-auto",
               "resize-none rounded-[15px] border-0 bg-zinc-950/90",
               "text-sm text-zinc-200 leading-relaxed placeholder:text-zinc-700",
               "focus-visible:ring-0 focus-visible:outline-none",
@@ -265,13 +257,6 @@ export function ScreenerDropzone({
         {hasJobDescription && !isLoading && (
           <p className="text-[11px] text-zinc-700 mt-2 text-right tabular-nums">
             {jobDescription.trim().split(/\s+/).length} words
-          </p>
-        )}
-
-        {/* Contextual hint — only shown when no JD is present */}
-        {!hasJobDescription && (
-          <p className="text-[11px] text-zinc-700 mt-2 leading-relaxed">
-            Without a job description, a single general analysis will run instead of the dual comparison.
           </p>
         )}
       </div>
