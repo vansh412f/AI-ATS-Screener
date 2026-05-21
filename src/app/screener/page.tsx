@@ -27,7 +27,6 @@ import { cn } from "@/lib/utils";
 
 type LoadingPhase = "idle" | "parsing" | "analyzing";
 
-// ─── Local UI primitives ──────────────────────────────────────────────────────
 
 function ErrorPanel({
   message,
@@ -123,8 +122,6 @@ function EmptyState() {
   );
 }
 
-// The right column becomes the dedicated loading screen — pipeline steps
-// live here so the left column stays clean and stable during analysis.
 function LoadingState({ phase }: { phase: LoadingPhase }) {
   const steps: {
     label: string;
@@ -238,7 +235,6 @@ function LoadingState({ phase }: { phase: LoadingPhase }) {
   );
 }
 
-// ─── Page orchestrator ────────────────────────────────────────────────────────
 
 export default function ScreenerPage() {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
