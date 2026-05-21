@@ -199,7 +199,7 @@ function EngineInfoTooltip({ body }: { body: string }) {
 }
 
 // ScoreCard renders ONLY the header, ring, tier badge, and summary.
-// Insights live in the unified section below.
+// Insights are in the unified section below.
 function ScoreCard({
   data,
   theme,
