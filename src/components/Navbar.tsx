@@ -1,16 +1,20 @@
-"use client"
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { Bot, Menu, Briefcase, FileText, LayoutDashboard } from 'lucide-react';
+"use client";
 
+import React, { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Show,
+  SignInButton,
+  UserButton,
+} from "@clerk/nextjs";
+import { Bot, Menu, Briefcase, FileText, LayoutDashboard } from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
-
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -19,99 +23,181 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
+
+const navigation = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Job Board", href: "/jobs", icon: Briefcase },
+  { name: "Resume Screener", href: "/screener", icon: FileText },
+];
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Job Board', href: '/jobs', icon: Briefcase },
-    { name: 'Resume Screener', href: '/screener', icon: FileText },
-  ];
+  const pathname = usePathname();
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-zinc-800 bg-black backdrop-blur-md">
+    <nav className="sticky top-0 z-50 border-b border-zinc-800 bg-black/80 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          
-          {/* Logo Section */}
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight text-white">
-              <div className="flex h-9 w-9 items-center justify-center text-white-500">
-                <Bot className="h-6 w-6" />
+          {/* Logo */}
+          <div className="flex-shrink-0">
+            <Link href="/" className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-white text-black">
+                <Bot className="w-5 h-5" />
               </div>
-              <span>ATS Screener</span>
+              <span className="text-lg font-bold tracking-tight text-white">
+                ATS Screener
+              </span>
             </Link>
+          </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden sm:block">
-              <NavigationMenu>
-                <NavigationMenuList className="gap-2">
-                  {navigation.map((item) => (
+          {/* Desktop Navigation */}
+          <div className="hidden md:block">
+            <NavigationMenu>
+              <NavigationMenuList className="flex gap-2">
+                {navigation.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
                     <NavigationMenuItem key={item.name}>
                       <Link href={item.href}>
                         {/* @next-codemod-error This Link previously used the now removed `legacyBehavior` prop, and has a child that might not be an anchor. The codemod bailed out of lifting the child props to the Link. Check that the child component does not render an anchor, and potentially move the props manually to Link. */
                         }
-                        <NavigationMenuLink className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors cursor-pointer">
-                          <item.icon className="h-4 w-4 text-zinc-500" />
+                        <NavigationMenuLink
+                          className={cn(
+                            "group inline-flex h-9 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-900 hover:text-white focus:bg-zinc-900 focus:text-white focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-zinc-900/50 data-[state=open]:bg-zinc-900/50",
+                            isActive ? "text-white" : "text-zinc-400"
+                          )}
+                        >
                           {item.name}
                         </NavigationMenuLink>
                       </Link>
                     </NavigationMenuItem>
-                  ))}
-                </NavigationMenuList>
-              </NavigationMenu>
-            </div>
+                  );
+                })}
+              </NavigationMenuList>
+            </NavigationMenu>
           </div>
 
-          {/* Right Action Button */}
-          <div className="hidden sm:flex">
-            <Link href="/login">
-            <Button variant="outline" className="text-white border-zinc-700 bg-transparent hover:bg-zinc-900 hover:text-white">
-              Sign In
-            </Button>
-            </Link>
+          {/* Desktop Auth */}
+          <div className="hidden md:flex items-center gap-4">
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "border-zinc-700 bg-transparent text-white",
+                    "hover:bg-zinc-900 hover:text-white hover:border-zinc-600",
+                    "transition-all duration-200"
+                  )}
+                >
+                  Sign In
+                </Button>
+              </SignInButton>
+            </Show>
+
+            <Show when="signed-in">
+              <div className="flex items-center gap-3">
+                <UserButton
+                  appearance={{
+                    elements: {
+                      avatarBox: "w-8 h-8 rounded-lg ring-1 ring-zinc-700",
+                    },
+                  }}
+                />
+                <span className="text-sm font-medium text-zinc-300">
+                  My Account
+                </span>
+              </div>
+            </Show>
           </div>
 
-          {/* Mobile Menu */}
-          <div className="flex sm:hidden">
+          {/* Mobile menu button */}
+          <div className="flex md:hidden">
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-zinc-900">
-                  <Menu className="h-6 w-6" />
+                <Button
+                  variant="ghost"
+                  className="px-2 text-zinc-400 hover:text-white hover:bg-zinc-900"
+                >
+                  <span className="sr-only">Open main menu</span>
+                  <Menu className="h-6 w-6" aria-hidden="true" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-                <SheetHeader>
-                  <SheetTitle className="text-left flex items-center gap-2">
-                    <Bot className="h-5 w-5 text-white-600" />
+              <SheetContent
+                side="right"
+                className="w-[300px] border-l border-zinc-800 bg-black p-0"
+              >
+                <SheetHeader className="p-6 border-b border-zinc-900 text-left">
+                  <SheetTitle className="text-white flex items-center gap-2">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-white text-black">
+                      <Bot className="w-5 h-5" />
+                    </div>
                     ATS Screener
                   </SheetTitle>
                 </SheetHeader>
-                <div className="flex flex-col gap-4 mt-8">
-                  {navigation.map((item) => (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                      <item.icon className="h-5 w-5 text-slate-500" />
-                      {item.name}
-                    </Link>
-                  ))}
-                  <div className="mt-4 border-t pt-4">
-                    <Link href="/login">
-                        <Button variant="outline" className="text-white border-zinc-700 bg-transparent hover:bg-zinc-900 hover:text-white">
-                            Sign In
+                <div className="flex flex-col py-6 px-4 gap-6">
+                  <div className="flex flex-col gap-2">
+                    {navigation.map((item) => {
+                      const isActive = pathname === item.href;
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          onClick={() => setIsOpen(false)}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                            isActive
+                              ? "bg-zinc-900 text-white"
+                              : "text-zinc-400 hover:bg-zinc-900/50 hover:text-white"
+                          )}
+                        >
+                          <Icon className="w-4 h-4" />
+                          {item.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+
+                  <div className="h-px bg-zinc-900" />
+
+                  <div className="flex flex-col gap-3 mt-2">
+                    <Show when="signed-out">
+                      <SignInButton mode="modal">
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full border-zinc-700 bg-transparent text-white",
+                            "hover:bg-zinc-900 hover:text-white hover:border-zinc-600",
+                            "transition-all duration-200"
+                          )}
+                          onClick={() => setIsOpen(false)}
+                        >
+                          Sign In
                         </Button>
-                    </Link>
+                      </SignInButton>
+                    </Show>
+
+                    <Show when="signed-in">
+                      <div className="flex items-center gap-3 px-1">
+                        <UserButton
+                          appearance={{
+                            elements: {
+                              avatarBox:
+                                "w-8 h-8 rounded-lg ring-1 ring-zinc-700",
+                            },
+                          }}
+                        />
+                        <span className="text-sm text-zinc-400">
+                          My Account
+                        </span>
+                      </div>
+                    </Show>
                   </div>
                 </div>
               </SheetContent>
             </Sheet>
           </div>
-
         </div>
       </div>
     </nav>
