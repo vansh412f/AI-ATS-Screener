@@ -2,6 +2,8 @@
 
 import React from "react";
 import { useDropzone, FileRejection } from "react-dropzone";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -165,8 +167,23 @@ export function ScreenerDropzone({
   onRemoveFile,
   onJobDescriptionChange,
 }: ScreenerDropzoneProps) {
+  const { isSignedIn } = useAuth();
+  const router = useRouter();
+
+  const handleDrop = React.useCallback(
+    (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+      if (!isSignedIn) {
+        router.push("/sign-in");
+        return;
+      }
+
+      onDrop(acceptedFiles, rejectedFiles);
+    },
+    [isSignedIn, router, onDrop]
+  );
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
+    onDrop: handleDrop,
     accept: { "application/pdf": [".pdf"] },
     maxSize: 5 * 1024 * 1024,
     maxFiles: 1,
@@ -178,7 +195,6 @@ export function ScreenerDropzone({
 
   return (
     <>
-      {/* ── Resume Drop Zone ── */}
       <div>
         <SectionLabel icon={FileText} label="Resume" />
         <div
@@ -225,7 +241,6 @@ export function ScreenerDropzone({
         )}
       </div>
 
-      {/* ── Job Description ── */}
       <div>
         <SectionLabel icon={ClipboardList} label="Job Description" optional />
         <div
