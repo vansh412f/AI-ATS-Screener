@@ -1,7 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// Any route added here will require an authenticated session.
-// The regex suffixes ensure nested paths are caught too
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
   "/vault(.*)",
@@ -9,8 +7,6 @@ const isProtectedRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) {
-    // auth.protect() redirects unauthenticated users to Clerk's
-    // sign-in page automatically — no manual redirect logic needed.
     await auth.protect();
   }
 });
