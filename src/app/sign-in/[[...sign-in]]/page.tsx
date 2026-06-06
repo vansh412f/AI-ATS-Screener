@@ -49,7 +49,7 @@ export default function SignInPage() {
     ].join(" "),
     socialButtonsBlockButtonText: "!text-white !font-medium",
     socialButtonsBlockButtonArrow: "!text-zinc-400",
-
+    badge: "!bg-transparent !text-yellow-400 !border-none !text-xs !font-medium",
     // Divider ("or")
     dividerLine: "!bg-zinc-800",
     dividerText: "!text-zinc-500 !text-xs",

@@ -1,8 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 // Any route added here will require an authenticated session.
-// The regex suffixes ensure nested paths are caught too —
-// e.g. /vault/new, /dashboard/settings all match.
+// The regex suffixes ensure nested paths are caught too
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
   "/vault(.*)",
