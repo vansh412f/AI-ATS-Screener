@@ -206,12 +206,12 @@ function LockedDropzoneTeaser() {
         </Link>
 
         <div className="flex items-center gap-4 mt-1">
-          <div className="flex items-center gap-1.5 text-[10px] text-zinc-600">
-            <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
+          <div className="flex items-center gap-1.5 text-[15px] text-zinc-200">
+            <div className="w-2 h-2 rounded-full bg-emerald-500" />
             Free to use
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-zinc-600">
-            <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
+          <div className="flex items-center gap-1.5 text-[15px] text-zinc-200">
+            <div className="w-2 h-2 rounded-full bg-emerald-500" />
             No credit card
           </div>
         </div>
