@@ -1,0 +1,19 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ResumeScan {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clerkUserId String
+  jobTitle    String   @default("General")
+  legacyScore Int
+  modernScore Int
+  createdAt   DateTime @default(now())
+
+  @@index([clerkUserId])
+  @@map("resume_scans")
+}
