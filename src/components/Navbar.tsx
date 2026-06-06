@@ -3,11 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Show,
-  SignInButton,
-  UserButton,
-} from "@clerk/nextjs";
+import { Show, UserButton } from "@clerk/nextjs";
 import { Bot, Menu, Briefcase, FileText, LayoutDashboard } from "lucide-react";
 import {
   NavigationMenu,
@@ -39,7 +35,6 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-zinc-800 bg-black/80 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
           <div className="flex-shrink-0">
             <Link href="/" className="flex items-center gap-2">
               <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-white text-black">
@@ -51,7 +46,6 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
           <div className="hidden md:block">
             <NavigationMenu>
               <NavigationMenuList className="flex gap-2">
@@ -59,12 +53,10 @@ export default function Navbar() {
                   const isActive = pathname === item.href;
                   return (
                     <NavigationMenuItem key={item.name}>
-                      <Link href={item.href}>
-                        {/* @next-codemod-error This Link previously used the now removed `legacyBehavior` prop, and has a child that might not be an anchor. The codemod bailed out of lifting the child props to the Link. Check that the child component does not render an anchor, and potentially move the props manually to Link. */
-                        }
+                      <Link href={item.href} legacyBehavior passHref>
                         <NavigationMenuLink
                           className={cn(
-                            "group inline-flex h-9 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-900 hover:text-white focus:bg-zinc-900 focus:text-white focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-zinc-900/50 data-[state=open]:bg-zinc-900/50",
+                            "group inline-flex h-9 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-zinc-900 hover:text-white focus:bg-zinc-900 focus:text-white focus:outline-none disabled:pointer-events-none disabled:opacity-50",
                             isActive ? "text-white" : "text-zinc-400"
                           )}
                         >
@@ -78,13 +70,14 @@ export default function Navbar() {
             </NavigationMenu>
           </div>
 
-          {/* Desktop Auth */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
             <Show when="signed-out">
-              <SignInButton mode="modal">
+              <Link href="/sign-in">
                 <Button
                   variant="outline"
+                  size="sm"
                   className={cn(
+                    "h-9 px-4 text-sm font-medium rounded-lg",
                     "border-zinc-700 bg-transparent text-white",
                     "hover:bg-zinc-900 hover:text-white hover:border-zinc-600",
                     "transition-all duration-200"
@@ -92,26 +85,34 @@ export default function Navbar() {
                 >
                   Sign In
                 </Button>
-              </SignInButton>
+              </Link>
+              <Link href="/sign-up">
+                <Button
+                  size="sm"
+                  className={cn(
+                    "h-9 px-4 text-sm font-semibold rounded-lg",
+                    "bg-white text-black",
+                    "hover:bg-zinc-200 active:scale-[0.98]",
+                    "transition-all duration-200 shadow-sm shadow-white/10"
+                  )}
+                >
+                  Sign Up
+                </Button>
+              </Link>
             </Show>
 
             <Show when="signed-in">
-              <div className="flex items-center gap-3">
-                <UserButton
-                  appearance={{
-                    elements: {
-                      avatarBox: "w-8 h-8 rounded-lg ring-1 ring-zinc-700",
-                    },
-                  }}
-                />
-                <span className="text-sm font-medium text-zinc-300">
-                  My Account
-                </span>
-              </div>
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox:
+                      "w-8 h-8 rounded-lg ring-1 ring-zinc-700 hover:ring-zinc-500 transition-all duration-200",
+                  },
+                }}
+              />
             </Show>
           </div>
 
-          {/* Mobile menu button */}
           <div className="flex md:hidden">
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
               <SheetTrigger asChild>
@@ -161,9 +162,9 @@ export default function Navbar() {
 
                   <div className="h-px bg-zinc-900" />
 
-                  <div className="flex flex-col gap-3 mt-2">
+                  <div className="flex flex-col gap-3">
                     <Show when="signed-out">
-                      <SignInButton mode="modal">
+                      <Link href="/sign-in" onClick={() => setIsOpen(false)}>
                         <Button
                           variant="outline"
                           className={cn(
@@ -171,11 +172,21 @@ export default function Navbar() {
                             "hover:bg-zinc-900 hover:text-white hover:border-zinc-600",
                             "transition-all duration-200"
                           )}
-                          onClick={() => setIsOpen(false)}
                         >
                           Sign In
                         </Button>
-                      </SignInButton>
+                      </Link>
+                      <Link href="/sign-up" onClick={() => setIsOpen(false)}>
+                        <Button
+                          className={cn(
+                            "w-full bg-white text-black font-semibold",
+                            "hover:bg-zinc-200 active:scale-[0.98]",
+                            "transition-all duration-200 shadow-sm shadow-white/10"
+                          )}
+                        >
+                          Sign Up
+                        </Button>
+                      </Link>
                     </Show>
 
                     <Show when="signed-in">
