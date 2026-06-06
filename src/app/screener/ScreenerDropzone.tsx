@@ -1,11 +1,12 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useDropzone, FileRejection } from "react-dropzone";
 import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   FileText,
   UploadCloud,
@@ -13,6 +14,8 @@ import {
   CheckCircle2,
   AlertCircle,
   ClipboardList,
+  Lock,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -158,6 +161,65 @@ function DropZoneContent({
   );
 }
 
+function LockedDropzoneTeaser() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/80">
+      <div className="absolute inset-0 bg-gradient-to-br from-zinc-900/50 via-black/80 to-black/90 backdrop-blur-sm" />
+      
+      <div className="absolute inset-0 opacity-[0.03]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:24px_24px]" />
+      </div>
+
+      <div className="relative flex flex-col items-center justify-center gap-6 p-10">
+        <div className="relative">
+          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-zinc-900/80 border border-zinc-700/50 shadow-2xl shadow-black/50">
+            <Lock className="w-7 h-7 text-zinc-500" />
+          </div>
+          <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+            <Sparkles className="w-2.5 h-2.5 text-zinc-500" />
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-2 text-center">
+          <h3 className="text-sm font-semibold text-zinc-200">
+            AI Resume Screener
+          </h3>
+          <p className="text-xs text-zinc-500 max-w-[220px] leading-relaxed">
+            Sign in to unlock dual ATS analysis powered by legacy and modern AI engines
+          </p>
+        </div>
+
+        <Link href="/sign-in?redirect_url=/screener">
+          <Button
+            size="sm"
+            className={cn(
+              "h-10 px-6 text-sm font-semibold rounded-xl",
+              "bg-white text-black",
+              "hover:bg-zinc-200 active:scale-[0.98]",
+              "transition-all duration-200",
+              "shadow-lg shadow-white/10"
+            )}
+          >
+            <Lock className="w-3.5 h-3.5 mr-2" />
+            Sign In to Unlock
+          </Button>
+        </Link>
+
+        <div className="flex items-center gap-4 mt-1">
+          <div className="flex items-center gap-1.5 text-[10px] text-zinc-600">
+            <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
+            Free to use
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-zinc-600">
+            <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
+            No credit card
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ScreenerDropzone({
   uploadedFile,
   jobDescription,
@@ -168,27 +230,14 @@ export function ScreenerDropzone({
   onJobDescriptionChange,
 }: ScreenerDropzoneProps) {
   const { isSignedIn } = useAuth();
-  const router = useRouter();
-
-  const handleDrop = React.useCallback(
-    (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
-      if (!isSignedIn) {
-        router.push("/sign-in");
-        return;
-      }
-
-      onDrop(acceptedFiles, rejectedFiles);
-    },
-    [isSignedIn, router, onDrop]
-  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: handleDrop,
+    onDrop,
     accept: { "application/pdf": [".pdf"] },
     maxSize: 5 * 1024 * 1024,
     maxFiles: 1,
     multiple: false,
-    disabled: isLoading,
+    disabled: isLoading || !isSignedIn,
   });
 
   const hasJobDescription = jobDescription.trim().length > 0;
@@ -197,47 +246,54 @@ export function ScreenerDropzone({
     <>
       <div>
         <SectionLabel icon={FileText} label="Resume" />
-        <div
-          className={cn(
-            "p-px rounded-2xl transition-all duration-500",
-            isDragActive
-              ? "bg-gradient-to-br from-white/40 via-white/10 to-white/5"
-              : uploadedFile
-              ? "bg-gradient-to-br from-emerald-500/40 via-emerald-500/10 to-transparent"
-              : dropError
-              ? "bg-gradient-to-br from-red-500/40 via-red-500/10 to-transparent"
-              : "bg-gradient-to-br from-zinc-700/60 via-zinc-800/30 to-transparent hover:from-zinc-600/60 hover:via-zinc-700/30"
-          )}
-        >
-          <div
-            {...getRootProps()}
-            className={cn(
-              "relative flex flex-col items-center justify-center rounded-[15px] p-8",
-              "outline-none transition-all duration-300 backdrop-blur-sm",
-              isLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer",
-              isDragActive
-                ? "bg-white/[0.03]"
-                : uploadedFile
-                ? "bg-emerald-950/20"
-                : dropError
-                ? "bg-red-950/20"
-                : "bg-zinc-950/80 hover:bg-zinc-900/60"
-            )}
-          >
-            <input {...getInputProps()} />
-            <DropZoneContent
-              isDragActive={isDragActive}
-              uploadedFile={uploadedFile}
-              onRemove={onRemoveFile}
-            />
-          </div>
-        </div>
+        
+        {!isSignedIn ? (
+          <LockedDropzoneTeaser />
+        ) : (
+          <>
+            <div
+              className={cn(
+                "p-px rounded-2xl transition-all duration-500",
+                isDragActive
+                  ? "bg-gradient-to-br from-white/40 via-white/10 to-white/5"
+                  : uploadedFile
+                  ? "bg-gradient-to-br from-emerald-500/40 via-emerald-500/10 to-transparent"
+                  : dropError
+                  ? "bg-gradient-to-br from-red-500/40 via-red-500/10 to-transparent"
+                  : "bg-gradient-to-br from-zinc-700/60 via-zinc-800/30 to-transparent hover:from-zinc-600/60 hover:via-zinc-700/30"
+              )}
+            >
+              <div
+                {...getRootProps()}
+                className={cn(
+                  "relative flex flex-col items-center justify-center rounded-[15px] p-8",
+                  "outline-none transition-all duration-300 backdrop-blur-sm",
+                  isLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+                  isDragActive
+                    ? "bg-white/[0.03]"
+                    : uploadedFile
+                    ? "bg-emerald-950/20"
+                    : dropError
+                    ? "bg-red-950/20"
+                    : "bg-zinc-950/80 hover:bg-zinc-900/60"
+                )}
+              >
+                <input {...getInputProps()} />
+                <DropZoneContent
+                  isDragActive={isDragActive}
+                  uploadedFile={uploadedFile}
+                  onRemove={onRemoveFile}
+                />
+              </div>
+            </div>
 
-        {dropError && (
-          <div className="flex items-center gap-2 mt-3">
-            <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
-            <p className="text-xs text-red-400">{dropError}</p>
-          </div>
+            {dropError && (
+              <div className="flex items-center gap-2 mt-3">
+                <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <p className="text-xs text-red-400">{dropError}</p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -254,8 +310,12 @@ export function ScreenerDropzone({
           <Textarea
             value={jobDescription}
             onChange={(e) => onJobDescriptionChange(e.target.value)}
-            disabled={isLoading}
-            placeholder="Paste the job description for a targeted dual-ATS comparison…"
+            disabled={isLoading || !isSignedIn}
+            placeholder={
+              isSignedIn
+                ? "Paste the job description for a targeted dual-ATS comparison…"
+                : "Sign in to paste a job description…"
+            }
             className={cn(
               "h-40 overflow-y-auto",
               "resize-none rounded-[15px] border-0 bg-zinc-950/90",
@@ -272,7 +332,7 @@ export function ScreenerDropzone({
           />
         </div>
 
-        {hasJobDescription && !isLoading && (
+        {hasJobDescription && !isLoading && isSignedIn && (
           <p className="text-[11px] text-zinc-700 mt-2 text-right tabular-nums">
             {jobDescription.trim().split(/\s+/).length} words
           </p>
