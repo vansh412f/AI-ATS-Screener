@@ -6,9 +6,6 @@ export default function SignInPage() {
       <SignIn
         appearance={{
   variables: {
-    // These CSS custom properties override Clerk's internal styles
-    // at the token level — they cascade with higher priority than
-    // any Tailwind class we'd put in `elements`.
     colorBackground: "#000000",
     colorInputBackground: "#0a0a0a",
     colorInputText: "#ffffff",
@@ -80,7 +77,6 @@ export default function SignInPage() {
     ].join(" "),
 
     // Footer — "Don't have an account? Sign up" / vice versa
-    // This is the section that was invisible on black.
     footer: [
       "!bg-black",
       "!border-t !border-zinc-800",
