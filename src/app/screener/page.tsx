@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { parsePdf, ParsePdfResult } from "@/actions/parse-pdf";
 import { analyzeResumeAction } from "@/actions/analyze-resume";
+import { logScanAction } from "@/actions/log-scan";
 import {
   ScreenerDropzone,
   UploadedFile,
@@ -360,6 +361,15 @@ export default function ScreenerPage() {
       setErrorMessage(modernResult.error);
       return;
     }
+
+        // Log once with both real scores now that Promise.all has settled
+    logScanAction({
+      jobTitle: trimmedJd,
+      legacyScore: legacyResult.data.atsScore,
+      modernScore: modernResult.data.atsScore,
+    }).catch(() => {
+      console.error("[handleSubmit] Failed to log scan — non-blocking.");
+    });
 
     setDashboardResults({
       legacy: legacyResult.data,

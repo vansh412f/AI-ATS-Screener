@@ -1,17 +1,53 @@
 "use server";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
 import type { AtsMode, AnalyzeResumeResult, AtsAnalysisResult } from "@/types/ats";
 import { ATS_RESPONSE_SCHEMA, isValidAtsResult } from "@/lib/ats/schema";
 import { buildPrompt } from "@/lib/ats/prompts";
-
-// export type { AtsMode, AnalyzeResumeResult, AtsAnalysisResult };
 
 export async function analyzeResumeAction(
   resumeText: string,
   jobDescription: string | null,
   atsMode: AtsMode = "general"
 ): Promise<AnalyzeResumeResult> {
+  // ── Auth verification ─────────────────────────────────────────────────────
+  const { userId } = await auth();
+  if (!userId) {
+    return {
+      success: false,
+      error: "You must be signed in to analyze a resume.",
+    };
+  }
+
+  // ── Rate limit check (fail open on DB error) ──────────────────────────────
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const scanCount = await prisma.resumeScan.count({
+      where: {
+        clerkUserId: userId,
+        createdAt: {
+          gte: twentyFourHoursAgo,
+        },
+      },
+    });
+
+    if (scanCount >= 10) {
+      return {
+        success: false,
+        error:
+          "You have reached your daily limit of 10 resume scans. Please try again tomorrow.",
+      };
+    }
+  } catch {
+    console.error(
+      "[analyzeResumeAction] Rate limit DB check failed — failing open."
+    );
+  }
+
+  // ── API key validation ────────────────────────────────────────────────────
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return {
@@ -28,6 +64,7 @@ export async function analyzeResumeAction(
     };
   }
 
+  // ── Gemini API call ───────────────────────────────────────────────────────
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
@@ -89,6 +126,7 @@ export async function analyzeResumeAction(
     };
   }
 
+  // ── Parse and validate ────────────────────────────────────────────────────
   const cleaned = rawResponseText
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")
