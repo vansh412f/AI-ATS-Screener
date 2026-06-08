@@ -26,42 +26,43 @@
 2. [Theoretical Background: The ATS Problem](#2-theoretical-background-the-ats-problem)
     - [2.1 The Legacy Paradigm (Boolean & TF-IDF)](#21-the-legacy-paradigm-boolean--tf-idf)
     - [2.2 The Modern Paradigm (Semantic Embeddings)](#22-the-modern-paradigm-semantic-embeddings)
-3. [Project Philosophy & Core Objectives](#3-project-philosophy--core-objectives)
-4. [Deep Architecture & Data Flow](#4-deep-architecture--data-flow)
-    - [4.1 High-Level System Context](#41-high-level-system-context)
-    - [4.2 Sequential Data Flow Diagram](#42-sequential-data-flow-diagram)
-5. [Exhaustive Tech Stack Justification](#5-exhaustive-tech-stack-justification)
-    - [5.1 Core Framework: Next.js 15 & React 19](#51-core-framework-nextjs-15--react-19)
-    - [5.2 Artificial Intelligence: Google Gemini 2.5 Flash](#52-artificial-intelligence-google-gemini-25-flash)
-    - [5.3 Database & ORM: Prisma & PostgreSQL](#53-database--orm-prisma--postgresql)
-    - [5.4 Authentication & Identity: Clerk](#54-authentication--identity-clerk)
-    - [5.5 Styling & UI/UX: Tailwind CSS v4 & Shadcn UI](#55-styling--uiux-tailwind-css-v4--shadcn-ui)
-    - [5.6 File Processing: pdf-parse & @napi-rs/canvas](#56-file-processing-pdf-parse--napi-rscanvas)
-6. [Component & Directory Deep Dive](#6-component--directory-deep-dive)
-    - [6.1 The Application Router (src/app)](#61-the-application-router-srcapp)
-    - [6.2 Server Actions (src/actions)](#62-server-actions-srcactions)
-    - [6.3 Presentation Layer (src/components)](#63-presentation-layer-srccomponents)
-7. [Database Schema & Entity Relationships](#7-database-schema--entity-relationships)
-    - [7.1 ER Diagram](#71-er-diagram)
-8. [Security & Privacy Posture](#8-security--privacy-posture)
-    - [8.1 Ephemeral In-Memory Processing](#81-ephemeral-in-memory-processing)
-    - [8.2 Server Action Boundary Security](#82-server-action-boundary-security)
-    - [8.3 Rate Limiting & Abuse Prevention](#83-rate-limiting--abuse-prevention)
-9. [Performance & Optimization Strategies](#9-performance--optimization-strategies)
-    - [9.1 Concurrent Promise Execution](#91-concurrent-promise-execution)
-    - [9.2 Next.js Bundle Optimization](#92-nextjs-bundle-optimization)
-10. [API Reference (Internal Server Actions)](#10-api-reference-internal-server-actions)
-    - [10.1 `parsePdf(formData: FormData)`](#101-parsepdfformdata-formdata)
-    - [10.2 `analyzeResumeAction(resumeText, jobDescription, atsMode)`](#102-analyzeresumeactionresumetext-jobdescription-atsmode)
-11. [Detailed Setup & Installation](#11-detailed-setup--installation)
-    - [11.1 Local Development Environment](#111-local-development-environment)
-    - [11.2 Exhaustive Environment Variables](#112-exhaustive-environment-variables)
-12. [Deployment Strategies](#12-deployment-strategies)
-    - [12.1 Vercel Standard Deployment](#121-vercel-standard-deployment)
-    - [12.2 Docker Containerization (Optional)](#122-docker-containerization-optional)
-13. [Testing & Quality Assurance](#13-testing--quality-assurance)
-14. [Contributing & Version Control](#14-contributing--version-control)
-15. [Academic & Industry References](#15-academic--industry-references)
+3. [Key Technical & Product Features](#3-key-technical--product-features)
+4. [Project Philosophy & Core Objectives](#4-project-philosophy--core-objectives)
+5. [Deep Architecture & Data Flow](#5-deep-architecture--data-flow)
+    - [5.1 High-Level System Context](#51-high-level-system-context)
+    - [5.2 Sequential Data Flow Diagram](#52-sequential-data-flow-diagram)
+6. [Exhaustive Tech Stack Justification](#6-exhaustive-tech-stack-justification)
+    - [6.1 Core Framework: Next.js 15 & React 19](#61-core-framework-nextjs-15--react-19)
+    - [6.2 Artificial Intelligence: Google Gemini 2.5 Flash](#62-artificial-intelligence-google-gemini-25-flash)
+    - [6.3 Database & ORM: Prisma & PostgreSQL](#63-database--orm-prisma--postgresql)
+    - [6.4 Authentication & Identity: Clerk](#64-authentication--identity-clerk)
+    - [6.5 Styling & UI/UX: Tailwind CSS v4 & Shadcn UI](#65-styling--uiux-tailwind-css-v4--shadcn-ui)
+    - [6.6 File Processing: pdf-parse & @napi-rs/canvas](#66-file-processing-pdf-parse--napi-rscanvas)
+7. [Component & Directory Deep Dive](#7-component--directory-deep-dive)
+    - [7.1 The Application Router (src/app)](#71-the-application-router-srcapp)
+    - [7.2 Server Actions (src/actions)](#72-server-actions-srcactions)
+    - [7.3 Presentation Layer (src/components)](#73-presentation-layer-srccomponents)
+8. [Database Schema & Entity Relationships](#8-database-schema--entity-relationships)
+    - [8.1 ER Diagram](#81-er-diagram)
+9. [Security & Privacy Posture](#9-security--privacy-posture)
+    - [9.1 Ephemeral In-Memory Processing](#91-ephemeral-in-memory-processing)
+    - [9.2 Server Action Boundary Security](#92-server-action-boundary-security)
+    - [9.3 Rate Limiting & Abuse Prevention](#93-rate-limiting--abuse-prevention)
+10. [Performance & Optimization Strategies](#10-performance--optimization-strategies)
+    - [10.1 Concurrent Promise Execution](#101-concurrent-promise-execution)
+    - [10.2 Next.js Bundle Optimization](#102-nextjs-bundle-optimization)
+11. [API Reference (Internal Server Actions)](#11-api-reference-internal-server-actions)
+    - [11.1 `parsePdf(formData: FormData)`](#111-parsepdfformdata-formdata)
+    - [11.2 `analyzeResumeAction(resumeText, jobDescription, atsMode)`](#112-analyzeresumeactionresumetext-jobdescription-atsmode)
+12. [Detailed Setup & Installation](#12-detailed-setup--installation)
+    - [12.1 Local Development Environment](#121-local-development-environment)
+    - [12.2 Exhaustive Environment Variables](#122-exhaustive-environment-variables)
+13. [Deployment Strategies](#13-deployment-strategies)
+    - [13.1 Vercel Standard Deployment](#131-vercel-standard-deployment)
+    - [13.2 Docker Containerization (Optional)](#132-docker-containerization-optional)
+14. [Testing & Quality Assurance](#14-testing--quality-assurance)
+15. [Contributing & Version Control](#15-contributing--version-control)
+16. [Academic & Industry References](#16-academic--industry-references)
 
 ---
 
@@ -97,7 +98,26 @@ Modern recruiting platforms (e.g., Eightfold.ai, Greenhouse AI modules, modern W
 
 ---
 
-## 3. Project Philosophy & Core Objectives
+## 3. Key Technical & Product Features
+
+* **Dual ATS Engine Simulation:** Every resume scan fires two concurrent Gemini API calls via `Promise.all`. One simulates a legacy keyword-strict ATS (Taleo, Workday, SuccessFactors). One simulates a modern semantic AI ATS (Greenhouse, Lever, Eightfold). Results appear side-by-side.
+* **Premium Dark UI:** Pitch-black (`bg-black`) design system with `zinc-900` surfaces, gradient borders, glassmorphism overlays, animated SVG score rings with drop-shadow glows, Shadcn Tooltip engine explanations, and custom dark scrollbars via `ScrollArea`.
+* **Clerk Authentication:** Full auth flow with custom dark-themed sign-in/sign-up pages. Navbar uses Clerk v6 `<Show>` component for conditional rendering. `UserButton` with zinc ring styling.
+* **Route Protection:** Edge-compatible middleware protecting `/screener`, `/dashboard`, and `/vault`. Unauthenticated users are redirected to `/sign-in` automatically.
+* **Product-Led Growth Teaser:** Unauthenticated users visiting `/screener` see a premium locked dropzone with glassmorphism overlay, lock icon, and "Sign In to Unlock" CTA that redirects to `/sign-in?redirect_url=/screener` preserving their destination.
+* **Rate Limiting:** 10 scans per 24 hours enforced at the server action level using a Prisma count query with a 24-hour timestamp window. Fails open on database errors so legitimate users are never locked out during infrastructure hiccups.
+* **Scan Logging Architecture:** `analyzeResumeAction` handles only AI evaluation. `logScanAction` handles only database persistence. Both are called from `page.tsx` after `Promise.all` settles, writing a single database row with both real scores — preventing the double-row bug that occurs when each action logs independently.
+* **Modular Server Action Architecture:** Types, Gemini schema, prompt configs, and execution logic are separated into distinct files following strict separation of concerns.
+* **In-Memory PDF Parsing:** No file storage. PDFs are parsed server-side in memory using `pdf-parse` and immediately discarded after text extraction.
+* **Unified Insights Panel:** Below the two score cards, a single full-width accordion section (Strengths, Weaknesses, Action Plan) sourced from the modern result — closed by default to reduce cognitive load.
+* **Info Tooltips:** Each ATS engine label has a Shadcn Tooltip explaining what real-world systems it simulates and how it evaluates resumes — educating users about the ATS landscape.
+* **Score Delta Indicator:** Header row shows the point difference between legacy and modern scores with directional color coding (indigo for modern higher, orange for legacy higher).
+* **Professional Error Handling:** All Gemini API errors are mapped to clean user-facing messages. Raw provider strings (Gemini, Google, HTTP codes) are never exposed to the client.
+* **Prisma 7 + Supabase Setup:** Uses the new Prisma 7 `pg` adapter pattern. Runtime queries use PgBouncer pooler (port 6543). Migrations use direct connection (port 5432). Singleton client pattern prevents connection pool exhaustion during Next.js hot reloads.
+
+---
+
+## 4. Project Philosophy & Core Objectives
 
 1. **Absolute Privacy:** Resumes contain deeply personal Identifiable Information (PII). This app must never save a resume to disk. All processing must occur in RAM and be discarded instantly.
 2. **Speed via Concurrency:** Running complex LLM evaluations is slow. The architecture must fetch dual ATS evaluations concurrently to halve the wait time for the user.
@@ -106,11 +126,11 @@ Modern recruiting platforms (e.g., Eightfold.ai, Greenhouse AI modules, modern W
 
 ---
 
-## 4. Deep Architecture & Data Flow
+## 5. Deep Architecture & Data Flow
 
 The project leverages Next.js 15's App Router, blurring the line between backend and frontend through React Server Components (RSC) and Server Actions.
 
-### 4.1 High-Level System Context
+### 5.1 High-Level System Context
 
 ```mermaid
 graph TD
@@ -129,7 +149,7 @@ graph TD
     Next -- "7. Hydrate UI Dashboards" --> Client
 ```
 
-### 4.2 Sequential Data Flow Diagram
+### 5.2 Sequential Data Flow Diagram
 
 The sequence below illustrates the exact lifecycle of a single user request.
 
@@ -163,11 +183,11 @@ sequenceDiagram
 
 ---
 
-## 5. Exhaustive Tech Stack Justification
+## 6. Exhaustive Tech Stack Justification
 
 In professional software engineering, every dependency introduced is a liability. The following section exhaustively justifies every piece of technology used in this application and explicitly details why popular alternatives were rejected.
 
-### 5.1 Core Framework: Next.js 15 & React 19
+### 6.1 Core Framework: Next.js 15 & React 19
 
 **What it is:** A React framework supporting hybrid static and server rendering, TypeScript support, smart bundling, and route pre-fetching.
 
@@ -179,7 +199,7 @@ In professional software engineering, every dependency introduced is a liability
   * *Vite / Create React App:* These are pure SPAs. They run entirely in the browser. Parsing heavy PDFs in the browser blocks the main thread, causing the UI to freeze.
   * *Remix:* While Remix is excellent, Next.js currently has a slightly larger ecosystem for edge-case libraries (like server-side canvas implementations) and tighter Vercel deployment integration.
 
-### 5.2 Artificial Intelligence: Google Gemini 2.5 Flash
+### 6.2 Artificial Intelligence: Google Gemini 2.5 Flash
 
 **What it is:** Google's lightweight, highly optimized multimodal large language model, accessed via `@google/generative-ai`.
 
@@ -192,7 +212,7 @@ In professional software engineering, every dependency introduced is a liability
   * *OpenAI GPT-4o-mini:* A strong contender, but Gemini's native structured outputs API in Node is currently slightly cleaner to implement without external wrappers like Zod/Instructor.
   * *Anthropic Claude 3 Haiku:* Excellent model, but Anthropic's structured JSON output can sometimes be fragile compared to Google's strict schema engine.
 
-### 5.3 Database & ORM: Prisma & PostgreSQL
+### 6.3 Database & ORM: Prisma & PostgreSQL
 
 **What it is:** Prisma is a next-generation Node.js and TypeScript ORM. PostgreSQL is the world's most advanced open-source relational database.
 
@@ -204,7 +224,7 @@ In professional software engineering, every dependency introduced is a liability
   * *MongoDB / Mongoose:* NoSQL databases are great for unstructured data. However, our ATS scores are highly structured. Using NoSQL here would sacrifice the strict relational integrity and indexing required for fast historical queries.
   * *Drizzle ORM:* Drizzle is excellent and faster than Prisma, but Prisma's schema definition language is vastly easier to read, and its migration engine is more robust for rapid prototyping.
 
-### 5.4 Authentication & Identity: Clerk
+### 6.4 Authentication & Identity: Clerk
 
 **What it is:** A comprehensive suite of embeddable UIs, flexible APIs, and admin dashboards to authenticate and manage users.
 
@@ -215,7 +235,7 @@ In professional software engineering, every dependency introduced is a liability
   * *NextAuth.js (Auth.js):* NextAuth is open source and excellent, but requires the developer to build their own UI for login screens, manage their own database adapters for user storage, and handle complex JWT rotation logic. Clerk abstracts all of this.
   * *Supabase Auth:* While powerful, it often locks you heavily into the Supabase ecosystem. Clerk is database-agnostic.
 
-### 5.5 Styling & UI/UX: Tailwind CSS v4 & Shadcn UI
+### 6.5 Styling & UI/UX: Tailwind CSS v4 & Shadcn UI
 
 **What it is:** Tailwind is a utility-first CSS framework. Shadcn UI is a collection of beautifully designed, accessible, reusable components that you copy and paste into your apps.
 
@@ -227,7 +247,7 @@ In professional software engineering, every dependency introduced is a liability
   * *Material UI (MUI):* MUI forces a very specific "Google" aesthetic that is hard to override. It also heavily relies on CSS-in-JS, which significantly increases the JavaScript payload sent to the client and causes hydration mismatches in React 18/19.
   * *Bootstrap:* Outdated, heavy, and leads to websites that all look identical.
 
-### 5.6 File Processing: pdf-parse & @napi-rs/canvas
+### 6.6 File Processing: pdf-parse & @napi-rs/canvas
 
 **What it is:** `pdf-parse` is a pure JavaScript PDF text extractor based on Mozilla's PDF.js. `@napi-rs/canvas` is a Rust-based Node.js canvas implementation.
 
@@ -241,11 +261,11 @@ In professional software engineering, every dependency introduced is a liability
 
 ---
 
-## 6. Component & Directory Deep Dive
+## 7. Component & Directory Deep Dive
 
 The Next.js App Router structure enforces a highly logical separation of concerns.
 
-### 6.1 The Application Router (`src/app`)
+### 7.1 The Application Router (`src/app`)
 
 * **`layout.tsx`**: The root layout. Wraps the entire application in the `<ClerkProvider>` and defines global fonts (Inter) and global CSS variables for dark mode.
 * **`page.tsx`**: The public landing page. Features hero banners, feature grids, and marketing copy.
@@ -255,7 +275,7 @@ The Next.js App Router structure enforces a highly logical separation of concern
   * `analyzing`: Waiting for Gemini promises to resolve.
   * It conditionally renders the Dropzone, Loading Spinners, or the Dashboard based on this state.
 
-### 6.2 Server Actions (`src/actions`)
+### 7.2 Server Actions (`src/actions`)
 
 Server actions are the backbone of our backend-less architecture.
 
@@ -272,18 +292,18 @@ Server actions are the backbone of our backend-less architecture.
   * Constructs a massive, highly specific prompt dynamically injecting the candidate's text and the job description.
   * Handles failure gracefully: intercepts `429 Too Many Requests` or `503 Service Unavailable` from Google and translates them into user-friendly error messages ("Our servers are experiencing peak volume").
 
-### 6.3 Presentation Layer (`src/components`)
+### 7.3 Presentation Layer (`src/components`)
 
 * **`screener/ScreenerDropzone.tsx`**: A client component utilizing `react-dropzone`. Handles drag-and-enter events, renders the dashed upload box, and displays a text area for the optional Job Description.
 * **`screener/ResultDashboard.tsx`**: The most visually complex component. It maps over the `dashboardResults` object. It utilizes massive SVG paths to render animated circular progress bars for the ATS score. It maps the array of `strengths` and `actionableSteps` into beautifully styled, icon-prefixed lists.
 
 ---
 
-## 7. Database Schema & Entity Relationships
+## 8. Database Schema & Entity Relationships
 
 The database is intentionally kept lean to maximize read/write speed and minimize complex joins.
 
-### 7.1 ER Diagram
+### 8.1 ER Diagram
 
 ```mermaid
 erDiagram
@@ -312,11 +332,11 @@ erDiagram
 
 ---
 
-## 8. Security & Privacy Posture
+## 9. Security & Privacy Posture
 
 When dealing with resumes, security is not a feature; it is a fundamental requirement. Resumes contain names, phone numbers, addresses, and employment histories. 
 
-### 8.1 Ephemeral In-Memory Processing
+### 9.1 Ephemeral In-Memory Processing
 The single most important security feature of this application is what it *does not do*. 
 1. The client uploads the PDF via HTTP POST as `multipart/form-data`.
 2. Next.js receives the stream into memory.
@@ -325,21 +345,21 @@ The single most important security feature of this application is what it *does 
 5. Vercel's Node.js runtime garbage collector sweeps the RAM.
 **Result:** No file ever touches a hard drive. If a server is compromised, there are no resumes sitting in an `/uploads` folder to steal.
 
-### 8.2 Server Action Boundary Security
+### 9.2 Server Action Boundary Security
 Server Actions in Next.js create a hidden POST endpoint. A malicious actor could attempt to hit this endpoint directly via cURL without using the UI.
 * Our server actions do not blindly trust the client payload.
 * `parse-pdf.ts` strictly enforces MIME type checking and byte limits (5MB) before allocating memory, preventing Denial of Service (DoS) via massive file uploads.
 
-### 8.3 Rate Limiting & Abuse Prevention
+### 9.3 Rate Limiting & Abuse Prevention
 Because LLM API calls cost money, abuse prevention is critical.
 * Clerk Authentication natively acts as a first line of defense. By requiring a verified email to use the screener, we prevent basic bot networks.
 * The application catches `API_KEY_INVALID` and `RESOURCE_EXHAUSTED` errors from Gemini safely, ensuring that if an attack occurs, the application fails gracefully without exposing stack traces.
 
 ---
 
-## 9. Performance & Optimization Strategies
+## 10. Performance & Optimization Strategies
 
-### 9.1 Concurrent Promise Execution
+### 10.1 Concurrent Promise Execution
 The naive approach to dual ATS simulation would be sequential:
 ```typescript
 // BAD: Takes 8 seconds
@@ -356,17 +376,17 @@ const [legacyResult, modernResult] = await Promise.all([
 ```
 This halves the perceived latency for the end user.
 
-### 9.2 Next.js Bundle Optimization
+### 10.2 Next.js Bundle Optimization
 We rely heavily on Lucide React for iconography. Importing icons improperly can bundle thousands of unused SVGs. We use explicit imports, and Next.js 15's advanced SWC compiler treeshakes unused components automatically.
 Furthermore, `pdf-parse` and `@napi-rs/canvas` are strictly used inside server actions. They are entirely stripped from the client bundle, ensuring the browser only downloads React and Tailwind classes, resulting in sub-100kb payload sizes.
 
 ---
 
-## 10. API Reference (Internal Server Actions)
+## 11. API Reference (Internal Server Actions)
 
 While this project does not expose a public REST API, the internal Server Actions act as strong contracts.
 
-### 10.1 `parsePdf(formData: FormData)`
+### 11.1 `parsePdf(formData: FormData)`
 * **Location:** `src/actions/parse-pdf.ts`
 * **Purpose:** Validates and extracts text from binary PDF data.
 * **Input:** A standard `FormData` object containing a `resume` (File) and optional `jobDescription` (String).
@@ -377,7 +397,7 @@ type ParsePdfResult =
   | { success: false; text: null; error: string };
 ```
 
-### 10.2 `analyzeResumeAction(resumeText, jobDescription, atsMode)`
+### 11.2 `analyzeResumeAction(resumeText, jobDescription, atsMode)`
 * **Location:** `src/actions/analyze-resume.ts`
 * **Purpose:** Constructs the prompt, communicates with Gemini, and strictly validates the returned JSON.
 * **Input:** 
@@ -397,11 +417,11 @@ interface AtsAnalysisResult {
 
 ---
 
-## 11. Detailed Setup & Installation
+## 12. Detailed Setup & Installation
 
 To run this complex application locally, follow these steps meticulously.
 
-### 11.1 Local Development Environment
+### 12.1 Local Development Environment
 
 **Prerequisites:**
 * Node.js version 20.x or greater.
@@ -419,7 +439,7 @@ cd ai-ats-screener
 npm install
 ```
 
-### 11.2 Exhaustive Environment Variables
+### 12.2 Exhaustive Environment Variables
 
 You must create a `.env.local` file at the root of your project. The application will crash on boot if these are missing.
 
@@ -466,11 +486,11 @@ Navigate your browser to `http://localhost:3000`.
 
 ---
 
-## 12. Deployment Strategies
+## 13. Deployment Strategies
 
 This application is designed to be highly portable, though Next.js apps run best on Vercel.
 
-### 12.1 Vercel Standard Deployment
+### 13.1 Vercel Standard Deployment
 1. Push your code to a GitHub repository.
 2. Log into Vercel and select "Add New Project".
 3. Import your GitHub repository.
@@ -478,7 +498,7 @@ This application is designed to be highly portable, though Next.js apps run best
 5. In the Build Command section, ensure it is set to `npm run build`. Vercel will automatically detect Prisma and generate the client.
 6. Click Deploy. Vercel will automatically deploy the frontend to its CDN and the Server Actions to AWS Lambda functions globally.
 
-### 12.2 Docker Containerization (Optional)
+### 13.2 Docker Containerization (Optional)
 If you wish to deploy to AWS ECS, Google Cloud Run, or a custom VPS, you can containerize the application. Because we use `@napi-rs/canvas`, our Dockerfile must use a compatible OS base image.
 
 **Example `Dockerfile`:**
@@ -511,7 +531,7 @@ CMD ["node", "server.js"]
 
 ---
 
-## 13. Testing & Quality Assurance
+## 14. Testing & Quality Assurance
 
 Due to the non-deterministic nature of LLMs, testing this application requires specialized strategies.
 
@@ -521,7 +541,7 @@ Due to the non-deterministic nature of LLMs, testing this application requires s
 
 ---
 
-## 14. Contributing & Version Control
+## 15. Contributing & Version Control
 
 We welcome contributions from the open-source community. Please adhere to the following guidelines:
 
@@ -535,7 +555,7 @@ We welcome contributions from the open-source community. Please adhere to the fo
 
 ---
 
-## 15. Academic & Industry References
+## 16. Academic & Industry References
 
 To better understand the logic driving our dual-engine simulators, refer to the following industry standards and whitepapers regarding Applicant Tracking Systems and Natural Language Processing:
 
