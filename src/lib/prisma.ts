@@ -11,7 +11,6 @@ const connectionString = process.env.DATABASE_URL!;
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 
-// Pass the adapter into the PrismaClient constructor
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({ adapter });
