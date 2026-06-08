@@ -26,7 +26,7 @@ import {
   Building2,
   Info,
 } from "lucide-react";
-import { AtsAnalysisResult } from "@/actions/analyze-resume";
+import type { AtsAnalysisResult } from "@/types/ats";
 import { cn } from "@/lib/utils";
 
 export interface DashboardResults {
