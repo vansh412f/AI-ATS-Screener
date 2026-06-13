@@ -1,4 +1,3 @@
-// src/components/home/LiveCounters.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -25,10 +24,10 @@ function getRelativeTime(date: Date): string {
   const weeks = Math.floor(days / 7);
 
   if (seconds < 60) return "just now";
-  if (minutes < 60) return `${minutes} minute\({minutes === 1 ? "" : "s"} ago`;
-  if (hours < 24) return `\){hours} hour\({hours === 1 ? "" : "s"} ago`;
-  if (days < 7) return `\){days} day${days === 1 ? "" : "s"} ago`;
-  return `${weeks} week\({weeks === 1 ? "" : "s"} ago`;
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
+  return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
 }
 
 const DURATION = 1800;
@@ -96,7 +95,7 @@ export function LiveCounters({
   const animStyle = (delay: number): React.CSSProperties =>
     isVisible
       ? {
-          animation: `fadeInUp 600ms cubic-bezier(0.16, 1, 0.3, 1) \){delay}ms both`,
+          animation: `fadeInUp 600ms cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms both`,
         }
       : { opacity: 0 };
 
@@ -122,7 +121,6 @@ export function LiveCounters({
             }
           >
             <div className={cardClass} style={animStyle(0)}>
-              {/* Mobile: Icon Left | Desktop: Icon Top */}
               <div className="flex md:block items-center gap-3 md:gap-0">
                 <div className="bg-orange-500/10 rounded-xl p-2 w-fit shrink-0">
                   <Users size={20} className="text-orange-500" />
@@ -142,7 +140,6 @@ export function LiveCounters({
             </div>
 
             <div className={cardClass} style={animStyle(120)}>
-              {/* Mobile: Icon Left | Desktop: Icon Top */}
               <div className="flex md:block items-center gap-3 md:gap-0">
                 <div className="bg-indigo-500/10 rounded-xl p-2 w-fit shrink-0">
                   <FileSearch size={20} className="text-indigo-400" />
