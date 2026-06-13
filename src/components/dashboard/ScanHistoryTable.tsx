@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FileSearch } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import type { ScanRecord } from "@/types/ats";
 
 interface ScanHistoryTableProps {
@@ -19,24 +20,24 @@ function formatDate(date: Date): string {
 function getDelta(
   legacy: number,
   modern: number
-): { label: string; className: string } {
+): { label: string; badgeClass: string } {
   const delta = modern - legacy;
   if (delta > 0)
     return {
       label: `+${delta}`,
-      className:
-        "py-2.5 px-3 font-bold tabular-nums text-right text-xs text-emerald-400",
+      badgeClass:
+        "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10",
     };
   if (delta < 0)
     return {
       label: `${delta}`,
-      className:
-        "py-2.5 px-3 font-bold tabular-nums text-right text-xs text-red-400",
+      badgeClass:
+        "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/10",
     };
   return {
     label: "=",
-    className:
-      "py-2.5 px-3 font-bold tabular-nums text-right text-xs text-zinc-500",
+    badgeClass:
+      "bg-zinc-500/10 text-zinc-500 border-zinc-500/20 hover:bg-zinc-500/10",
   };
 }
 
@@ -98,13 +99,30 @@ export function ScanHistoryTable({ scans }: ScanHistoryTableProps) {
                 >
                   {scan.jobTitle}
                 </td>
-                <td className="py-2.5 px-3 text-orange-500 font-bold tabular-nums text-right">
-                  {scan.legacyScore}
+                <td className="py-2.5 px-3 text-right">
+                  <Badge
+                    variant="outline"
+                    className="bg-orange-500/10 text-orange-500 border-orange-500/20 hover:bg-orange-500/10 font-bold tabular-nums text-xs"
+                  >
+                    {scan.legacyScore}
+                  </Badge>
                 </td>
-                <td className="py-2.5 px-3 text-indigo-400 font-bold tabular-nums text-right">
-                  {scan.modernScore}
+                <td className="py-2.5 px-3 text-right">
+                  <Badge
+                    variant="outline"
+                    className="bg-indigo-500/10 text-indigo-400 border-indigo-400/20 hover:bg-indigo-500/10 font-bold tabular-nums text-xs"
+                  >
+                    {scan.modernScore}
+                  </Badge>
                 </td>
-                <td className={delta.className}>{delta.label}</td>
+                <td className="py-2.5 px-3 text-right">
+                  <Badge
+                    variant="outline"
+                    className={`${delta.badgeClass} font-bold tabular-nums text-xs`}
+                  >
+                    {delta.label}
+                  </Badge>
+                </td>
               </tr>
             );
           })}
