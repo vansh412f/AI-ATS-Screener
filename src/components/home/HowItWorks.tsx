@@ -127,7 +127,7 @@ export function HowItWorks() {
       <section ref={sectionRef} className="bg-black px-4 sm:px-6 pb-20 overflow-hidden">
         <div className="max-w-4xl mx-auto">
 
-          {/* ── Section Header ── */}
+          {/* Section Header  */}
           <div
             className="pt-16 pb-10 text-center"
             style={animStyle(visible, "fadeInUp", 600, 0)}
