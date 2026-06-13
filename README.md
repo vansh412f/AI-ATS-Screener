@@ -14,6 +14,9 @@
   <img src="https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white" alt="Prisma" />
   <img src="https://img.shields.io/badge/Clerk_Auth-6C47FF?style=for-the-badge&logo=clerk&logoColor=white" alt="Clerk" />
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Recharts-Chart-22B573?style=for-the-badge&logo=recharts" alt="Recharts" />
+  <img src="https://img.shields.io/badge/Shadcn_UI-000000?style=for-the-badge&logo=shadcnui&logoColor=white" alt="Shadcn UI" />
+  <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
 </p>
 
 </div>
@@ -31,17 +34,20 @@
 5. [Deep Architecture & Data Flow](#5-deep-architecture--data-flow)
     - [5.1 High-Level System Context](#51-high-level-system-context)
     - [5.2 Sequential Data Flow Diagram](#52-sequential-data-flow-diagram)
+    - [5.3 Key Architectural Decisions](#53-key-architectural-decisions)
 6. [Exhaustive Tech Stack Justification](#6-exhaustive-tech-stack-justification)
     - [6.1 Core Framework: Next.js 15 & React 19](#61-core-framework-nextjs-15--react-19)
     - [6.2 Artificial Intelligence: Google Gemini 2.5 Flash](#62-artificial-intelligence-google-gemini-25-flash)
     - [6.3 Database & ORM: Prisma & PostgreSQL](#63-database--orm-prisma--postgresql)
     - [6.4 Authentication & Identity: Clerk](#64-authentication--identity-clerk)
     - [6.5 Styling & UI/UX: Tailwind CSS v4 & Shadcn UI](#65-styling--uiux-tailwind-css-v4--shadcn-ui)
+        - [6.5.1 Design System Specification](#651-design-system-specification)
     - [6.6 File Processing: pdf-parse & @napi-rs/canvas](#66-file-processing-pdf-parse--napi-rscanvas)
 7. [Component & Directory Deep Dive](#7-component--directory-deep-dive)
     - [7.1 The Application Router (src/app)](#71-the-application-router-srcapp)
     - [7.2 Server Actions (src/actions)](#72-server-actions-srcactions)
     - [7.3 Presentation Layer (src/components)](#73-presentation-layer-srccomponents)
+    - [7.4 Complete File Architecture](#74-complete-file-architecture)
 8. [Database Schema & Entity Relationships](#8-database-schema--entity-relationships)
     - [8.1 ER Diagram](#81-er-diagram)
 9. [Security & Privacy Posture](#9-security--privacy-posture)
@@ -54,6 +60,7 @@
 11. [API Reference (Internal Server Actions)](#11-api-reference-internal-server-actions)
     - [11.1 `parsePdf(formData: FormData)`](#111-parsepdfformdata-formdata)
     - [11.2 `analyzeResumeAction(resumeText, jobDescription, atsMode)`](#112-analyzeresumeactionresumetext-jobdescription-atsmode)
+    - [11.3 Shared Types Reference](#113-shared-types-reference)
 12. [Detailed Setup & Installation](#12-detailed-setup--installation)
     - [12.1 Local Development Environment](#121-local-development-environment)
     - [12.2 Exhaustive Environment Variables](#122-exhaustive-environment-variables)
@@ -103,7 +110,7 @@ Modern recruiting platforms (e.g., Eightfold.ai, Greenhouse AI modules, modern W
 * **Dual ATS Engine Simulation:** Every resume scan fires two concurrent Gemini API calls via `Promise.all`. One simulates a legacy keyword-strict ATS (Taleo, Workday, SuccessFactors). One simulates a modern semantic AI ATS (Greenhouse, Lever, Eightfold). Results appear side-by-side.
 * **Premium Dark UI:** Pitch-black (`bg-black`) design system with `zinc-900` surfaces, gradient borders, glassmorphism overlays, animated SVG score rings with drop-shadow glows, Shadcn Tooltip engine explanations, and custom dark scrollbars via `ScrollArea`.
 * **Clerk Authentication:** Full auth flow with custom dark-themed sign-in/sign-up pages. Navbar uses Clerk v6 `<Show>` component for conditional rendering. `UserButton` with zinc ring styling.
-* **Route Protection:** Edge-compatible middleware protecting `/screener`, `/dashboard`, and `/vault`. Unauthenticated users are redirected to `/sign-in` automatically.
+* **Route Protection:** Edge-compatible middleware protecting `/screener` ONLY. `/dashboard` handles auth at the PAGE LEVEL using `auth()` from Clerk. It renders an `AuthWall` component for unauthenticated users instead of redirecting. `/vault` does not exist in this project.
 * **Product-Led Growth Teaser:** Unauthenticated users visiting `/screener` see a premium locked dropzone with glassmorphism overlay, lock icon, and "Sign In to Unlock" CTA that redirects to `/sign-in?redirect_url=/screener` preserving their destination.
 * **Rate Limiting:** 10 scans per 24 hours enforced at the server action level using a Prisma count query with a 24-hour timestamp window. Fails open on database errors so legitimate users are never locked out during infrastructure hiccups.
 * **Scan Logging Architecture:** `analyzeResumeAction` handles only AI evaluation. `logScanAction` handles only database persistence. Both are called from `page.tsx` after `Promise.all` settles, writing a single database row with both real scores — preventing the double-row bug that occurs when each action logs independently.
@@ -181,6 +188,21 @@ sequenceDiagram
     Browser->>User: Render Animated ResultDashboard
 ```
 
+### 5.3 Key Architectural Decisions
+
+Critical architectural decisions that must never be violated:
+
+1. **Dual Engine Concurrency:** `analyzeResumeAction` fires TWICE concurrently via `Promise.all` — once as "legacy", once as "modern". They must never be fired sequentially.
+2. **Persistence Timing:** `logScanAction` runs AFTER `Promise.all` settles in `screener/page.tsx`, writing ONE row with both scores. Never log inside `analyzeResumeAction` — this causes a double-row database entry bug.
+3. **Fail-Open Rate Limiting:** Rate limiting (10 scans/24 hours) lives inside `analyzeResumeAction` using `prisma.resumeScan.count` with a 24-hour timestamp window. It fails open on database errors so users are never locked out due to database infrastructure issues.
+4. **Client-Server Bundle Boundaries:** Types are imported from `@/types/ats` in client components — NEVER from "use server" files. This prevents server-only execution code from leaking into the client bundle.
+5. **Prompt Configuration Encapsulation:** `ATS_MODE_CONFIGS` is NOT exported from `prompts.ts` — only `buildPrompt()` is public. Internal prompt configurations remain encapsulated.
+6. **Unified Score Storage:** `modernScore` column stores both "modern" mode score AND "general" mode score: `modernScore: atsMode !== "legacy" ? score : 0`.
+7. **Prisma Connection Pooling:** The Prisma singleton uses `@prisma/adapter-pg` with a `PrismaPg` pool — making it hot-reload safe, maintaining a single instance, and preventing connection pool exhaustion.
+8. **Decentralized Auth Architecture:** `/dashboard` is NOT middleware-protected. Only `/screener` is. The dashboard handles authentication at the page level and renders `<AuthWall />` for unauthenticated users — this is an intentional product design choice, not an oversight.
+9. **Ephemeral PDF Processing:** PDF parsing is entirely in-memory. No file is ever written to disk, and there is no reliance on S3 buckets or local upload folders.
+10. **Data Slicing Constraints:** Data is sliced after retrieval: `getScanHistory` fetches up to 50 items, then the parent page slices them: `statsScans` uses all 50 (for aggregate calculations), `chartScans` uses the first 10 (`slice(0, 10)` to keep line charts clean), and `tableScans` uses the first 20 (`slice(0, 20)` for clear scannability).
+
 ---
 
 ## 6. Exhaustive Tech Stack Justification
@@ -247,6 +269,35 @@ In professional software engineering, every dependency introduced is a liability
   * *Material UI (MUI):* MUI forces a very specific "Google" aesthetic that is hard to override. It also heavily relies on CSS-in-JS, which significantly increases the JavaScript payload sent to the client and causes hydration mismatches in React 18/19.
   * *Bootstrap:* Outdated, heavy, and leads to websites that all look identical.
 
+### 6.5.1 Design System Specification
+
+The entire application enforces a strict dark design system. No light mode exists anywhere in the codebase.
+
+* **Color Palette:**
+  * **Background:** bg-black (`#000000`) or bg-zinc-950 (`#09090b`)
+  * **Surfaces:** bg-zinc-900/40 with border-zinc-800
+  * **Text Hierarchy:** white (`#ffffff`) → zinc-200 (`#e4e4e7`) → zinc-400 (`#a1a1aa`) → zinc-600 (`#52525b`)
+  * **Legacy Accent:** orange-500 (`#f97316`)
+  * **Modern Accent:** indigo-400 (`#818cf8`)
+  * **Success Accent:** emerald-400 (`#34d399`)
+  * **Danger Accent:** red-400 (`#f87171`)
+  * **Info Accent:** sky-400 (`#38bdf8`)
+* **Interactive Patterns:**
+  * **Glassmorphism CTA:** `bg-white/10 hover:bg-white/15 border border-zinc-700 hover:border-zinc-600 text-white backdrop-blur-sm`
+  * **Primary Action:** `bg-white text-black hover:bg-zinc-100`
+  * **Transitions:** All interactive elements feature `transition-all duration-200`
+  * **Border Radii:** Consistent usage of `rounded-xl` or `rounded-2xl` throughout
+* **Visual Effects:**
+  * **Dot Grid Background:**
+    ```css
+    backgroundImage: "radial-gradient(circle, #27272a 1px, transparent 1px)"
+    backgroundSize: "24px 24px"
+    ```
+    *(Applied to the hero section and dashboard page header)*
+  * **Card Hover Glow:** `absolute inset-0 radial-gradient` using the card's accent color at 0.06 opacity (`opacity-0 group-hover:opacity-100`).
+  * **Top-Edge Accent Line:** `h-px` gradient from transparent via `color/40` to transparent (indigo on the chart card, orange on the table card).
+  * **Entrance Animations:** `fadeInUp` keyframe, `cubic-bezier(0.16, 1, 0.3, 1)`, with staggered delays at 0ms / 120ms / 240ms / 360ms.
+
 ### 6.6 File Processing: pdf-parse & @napi-rs/canvas
 
 **What it is:** `pdf-parse` is a pure JavaScript PDF text extractor based on Mozilla's PDF.js. `@napi-rs/canvas` is a Rust-based Node.js canvas implementation.
@@ -255,6 +306,7 @@ In professional software engineering, every dependency introduced is a liability
   * Mozilla's `pdf.js` worker requires a Canvas API to render and extract text from certain complex PDFs. Node.js does not have a native DOM Canvas. 
   * Older libraries (like `canvas`) require massive system-level dependencies (Cairo, Pango) that fail to build on Vercel or modern CI/CD pipelines.
   * `@napi-rs/canvas` provides pre-compiled Rust binaries. It is lightning fast, requires no system dependencies, and allows `pdf-parse` to perfectly extract text on a serverless Node function.
+  * *Note:* The mention of `@napi-rs/canvas` serves as an implementation detail that may vary depending on the active `pdf-parse` implementation. The key architectural guarantee is: PDF parsing is performed entirely in-memory via Server Actions, and no files are ever written to disk.
 * **Why We Rejected Alternatives:**
   * *Client-Side PDF.js:* As mentioned, parsing a 5MB PDF on a low-end mobile device's browser will freeze the main thread and crash the tab.
   * *Python/Tesseract OCR:* While OCR can read images, spinning up a Python microservice or installing Tesseract inside a Docker container introduces massive architectural complexity just to read standard PDF text layers.
@@ -268,12 +320,22 @@ The Next.js App Router structure enforces a highly logical separation of concern
 ### 7.1 The Application Router (`src/app`)
 
 * **`layout.tsx`**: The root layout. Wraps the entire application in the `<ClerkProvider>` and defines global fonts (Inter) and global CSS variables for dark mode.
-* **`page.tsx`**: The public landing page. Features hero banners, feature grids, and marketing copy.
+* **`page.tsx`**: The public landing page. A Server Component that fetches real-time platform stats (total users, total scans) from the database using `getDashboardStats()`. For logged-in users, also fetches their most recent scan via `getLastScan(userId)` using parallel `Promise.all` fetching. Renders `HeroSection`, `LiveCounters`, and `HowItWorks`.
 * **`screener/page.tsx`**: The core application orchestrator. This file is deeply complex. It manages the state machine:
   * `idle`: Waiting for user input.
   * `parsing`: File uploaded, currently extracting text.
   * `analyzing`: Waiting for Gemini promises to resolve.
   * It conditionally renders the Dropzone, Loading Spinners, or the Dashboard based on this state.
+* **`dashboard/page.tsx`**: The user analytics dashboard. A Server Component that handles authentication at the page level (no middleware redirect). It implements three render branches:
+  * *Unauthenticated:* Renders `<AuthWall />` centered on screen (no redirect).
+  * *Authenticated, 0 scans:* Renders `<PageHeader />` + `<EmptyDashboard />`.
+  * *Authenticated, has scans:* Full dashboard with stats, chart, and history table.
+  Data fetching uses `getScanHistory(userId)` which returns up to 50 scans, sliced before passing to components:
+  * `statsScans` = all 50 (for aggregate calculations).
+  * `chartScans` = first 10 (for `ScoreTrendChart` — line charts get noisy past 10).
+  * `tableScans` = first 20 (for `ScanHistoryTable`).
+  The page header features a dot-grid background matching the home page hero, a dynamic subtitle based on scan count, and a glassmorphism "New Scan" CTA. Entrance animations are delivered via a CSS `<style>` tag injected into the Server Component (staggered `fadeInUp` with 0ms / 120ms / 240ms delays).
+* **`jobs/page.tsx`**: Public placeholder page. No authentication required. Displays a premium "In Development" card with a briefcase icon (sky-blue accent), a wrench icon + "In Development" label, heading "Job Board Is Coming Soon", description of planned AI job matching features, and a glassmorphism CTA redirecting to `/screener` under a subtle sky-blue radial gradient glow. Planned features include: AI job matching, saved job searches, and an application tracker with scan history linked to specific job postings.
 
 ### 7.2 Server Actions (`src/actions`)
 
@@ -285,17 +347,129 @@ Server actions are the backbone of our backend-less architecture.
   * **Memory Management:** Converts the `File` object into an `ArrayBuffer`, then into a Node `Buffer`. 
   * **Parsing:** Instantiates the `PDFParse` worker, passing in the `CanvasFactory` from `@napi-rs/canvas`. Extracts the text and destroys the worker to free memory.
   * **Sanitization:** Removes excessive carriage returns, tabs, and duplicate spaces to save tokens before sending to Gemini.
-
 * **`analyze-resume.ts`**:
   * Imports the Google Generative AI SDK.
   * Holds the `ATS_MODE_CONFIGS` dictionary, defining the system instructions ("personas") for `legacy`, `modern`, and `general` modes.
   * Constructs a massive, highly specific prompt dynamically injecting the candidate's text and the job description.
   * Handles failure gracefully: intercepts `429 Too Many Requests` or `503 Service Unavailable` from Google and translates them into user-friendly error messages ("Our servers are experiencing peak volume").
+* **`get-dashboard-data.ts`**:
+  * Exposes three read-only server actions for data fetching. All three functions fail gracefully and never throw to the caller.
+  * **`getDashboardStats()`** &rarr; `Promise<DashboardStats>`: Fetches platform-wide aggregate stats (total scan count and distinct user count). Used on the public home page for social proof counters. Visible to all visitors including logged-out users. Uses `Promise.all` for parallel Prisma queries. Returns `{ totalScans: 0, totalUsers: 0 }` on any error.
+  * **`getLastScan(userId: string)`** &rarr; `Promise<ScanRecord | null>`: Fetches the single most recent scan for a given user. Used on the home page to show the "Last Scan" card to logged-in users. Returns null if the user has no scans or on any error. Caller always provides a valid non-empty `userId` — no null guard needed inside.
+  * **`getScanHistory(userId: string)`** &rarr; `Promise<ScanRecord[]>`: Fetches up to 50 most recent scans for a given user ordered by `createdAt DESC`. Used by the dashboard page. Returns empty array on error.
+  * *Note on totalUsers query:* Prisma 7 does not expose `COUNT(DISTINCT)` directly. The correct pattern used is `findMany` with `select: { clerkUserId: true }` and `distinct: ['clerkUserId']`, then taking `.length` of the returned array.
 
 ### 7.3 Presentation Layer (`src/components`)
 
+#### 7.3.1 Screener Components
+
 * **`screener/ScreenerDropzone.tsx`**: A client component utilizing `react-dropzone`. Handles drag-and-enter events, renders the dashed upload box, and displays a text area for the optional Job Description.
 * **`screener/ResultDashboard.tsx`**: The most visually complex component. It maps over the `dashboardResults` object. It utilizes massive SVG paths to render animated circular progress bars for the ATS score. It maps the array of `strengths` and `actionableSteps` into beautifully styled, icon-prefixed lists.
+
+#### 7.3.2 Dashboard Components (`src/components/dashboard/`)
+
+Five dedicated components power the analytics dashboard:
+
+* **`AuthWall.tsx`**: Shown to unauthenticated users visiting `/dashboard` instead of redirecting. Features a Lock icon with indigo glow, heading "Your Analytics Are Waiting", and two Shadcn Button components:
+  * Sign In &rarr; `/sign-in?redirect_url=/dashboard`
+  * Create Account &rarr; `/sign-up?redirect_url=/dashboard`
+  * Both buttons use the `redirect_url` query param to return the user to the dashboard after authentication. Footer text: "Free to use. No credit card required."
+* **`DashboardStats.tsx`**: Four stat cards in a responsive 2-column (mobile) / 4-column (desktop) grid. Returns `null` when `scans.length === 0` (parent handles empty state separately). Cards:
+  1. *Total Scans* — indigo accent, `FileSearch` icon.
+  2. *Best Score* — emerald accent, `Trophy` icon, shows `modernScore` + job title.
+  3. *Avg Delta* — sky accent, `TrendingUp` icon, mean of (`modernScore` - `legacyScore`).
+  4. *Improvement* — dynamic color (emerald/red/zinc), directional arrow icon, diff between last 2 scans' `modernScore`. Shows "N/A" for single-scan users.
+  * Each card has a radial gradient hover glow using the card's accent color.
+* **`EmptyDashboard.tsx`**: Shown to authenticated users with zero scan history. Features an icon cluster (Zap orange &rarr; Brain indigo &rarr; BarChart3 emerald) visualizing the ATS pipeline. Uses Shadcn Button (`asChild` pattern) with Link to `/screener` as the primary CTA. Features a hints row below the card: "Dual Engine | Score Trends | Actionable".
+* **`ScoreTrendChart.tsx`**: Recharts `ComposedChart` with gradient area fills under both score lines. Key implementation details:
+  * Data must be reversed before charting (DB returns newest first, chart reads left-to-right chronologically oldest-to-newest).
+  * Uses `ComposedChart` (not `LineChart`) because Area + Line require `ComposedChart`.
+  * SVG `linearGradient` defined in `<defs>`: orange for Legacy, indigo for Modern.
+  * Area elements rendered BEFORE Line elements (SVG z-order = DOM order).
+  * `stroke="none"` on Area elements — gradient fill only, no double lines.
+  * Lines rendered on top: Legacy (`#f97316`), Modern (`#818cf8`).
+  * Custom dark tooltip: `bg-zinc-900 border border-zinc-800 rounded-xl`.
+  * Custom legend with color swatches.
+  * YAxis domain `[0, 100]`.
+  * `isAnimationActive={true}`, `animationDuration={800}`.
+  * Placeholder shown if fewer than 2 scans exist.
+* **`ScanHistoryTable.tsx`**: Paginated table showing the last 20 scans (sliced by parent page). Uses Shadcn Badge (`variant="outline"`) for all score columns:
+  * Legacy score: orange pill (`bg-orange-500/10 text-orange-500`).
+  * Modern score: indigo pill (`bg-indigo-500/10 text-indigo-400`).
+  * Delta: emerald pill (`+N`), red pill (`-N`), or zinc pill (`=`).
+  * Alternating row striping: `bg-zinc-900/60` / `bg-zinc-950/60`.
+  * Date formatting uses a `new Date(scan.createdAt)` re-wrap to handle cases where Date objects arrive as strings after Next.js Server Component serialization.
+
+#### 7.3.3 Home Page Components (`src/components/home/`)
+
+* **`HeroSection.tsx`**: Client component with no props. Features a dot-grid radial gradient background. Headline: "Know Exactly Where Your Resume Stands". Subheadline: "Two ATS Engines. One Truth About Your Resume.". CTA: "Scan Your Resume" &rarr; `/screener` with `ArrowRight` icon. Uses fadeInUp keyframe entrance animations.
+* **`LiveCounters.tsx`**: Client component. Props: `{ totalScans: number, totalUsers: number, lastScan: ScanRecord | null }`. Renders 2 or 3 cards depending on whether `lastScan` is provided:
+  * Card 1: Total Users (orange, `Users` icon, "Resume Warriors").
+  * Card 2: Total Resumes Scanned (indigo, `FileSearch` icon).
+  * Card 3: Last Scan — ONLY rendered when `lastScan` is not null. Shows job title, legacy score (orange), modern score (indigo), relative time, and "View History &rarr;" link to `/dashboard`.
+  * Count-up animation: `requestAnimationFrame` loop, `easeOutQuart` easing, 1800ms duration, `Intl.NumberFormat` with comma separators.
+  * IntersectionObserver threshold 0.3 — animation fires once on scroll into view.
+* **`HowItWorks.tsx`**: Client component, no props. "Split Brain Visualization" showing the 4-step ATS pipeline:
+  1. *Upload & Target* card (centered).
+  2. *Legacy Engine* panel (slides in from left with blur) — shows keyword scan results.
+  3. *Modern Engine* panel (slides in from right with blur) — shows semantic dot ratings.
+  4. *Results* card (centered) — shows sample score breakdown.
+  * Panels animate in with `panelInLeft`/`panelInRight` keyframes.
+  * Rows inside panels reveal sequentially with `rowReveal` animation.
+  * IntersectionObserver threshold 0.1, fires once.
+
+#### 7.3.4 Global Navbar Component
+
+* **`Navbar.tsx`**: Sticky global navigation bar. Client component (uses `usePathname` for active state detection).
+  * Navigation items in order: Home (`/`), Dashboard (`/dashboard`), Job Board (`/jobs`), Resume Screener (`/screener`).
+  * Active state uses exact match for Home route to prevent false positives: `item.href === "/" ? pathname === "/" : pathname === item.href`.
+  * GitHub link: `https://github.com/vansh412f/AI-ATS-Screener`. Desktop renders an icon-only button in the right section before auth controls. Mobile renders centered between two `flex-1` divider lines with "GitHub" text label. Uses inline SVG for the GitHub icon (never use `lucide-react` for the GitHub icon as this project's version does not export it).
+  * Auth controls use Clerk v6 Show component: `<Show when="signed-out">` renders Sign In + Sign Up buttons, and `<Show when="signed-in">` renders `UserButton` with zinc ring styling.
+  * Mobile menu uses the Shadcn `Sheet` component.
+
+### 7.4 Complete File Architecture
+
+```
+src/
+├── actions/
+│   ├── analyze-resume.ts       # Gemini API, auth-gated, rate-limited
+│   ├── get-dashboard-data.ts   # getDashboardStats, getLastScan, getScanHistory
+│   ├── log-scan.ts             # Single DB write after Promise.all settles
+│   └── parse-pdf.ts            # In-memory PDF text extraction
+├── types/
+│   └── ats.ts                  # All shared TypeScript types
+├── lib/
+│   ├── prisma.ts               # Singleton PrismaClient with pg Pool adapter
+│   └── ats/
+│       ├── schema.ts           # Gemini response schema + isValidAtsResult()
+│       └── prompts.ts          # buildPrompt() — ATS_MODE_CONFIGS is private
+├── middleware.ts               # Clerk edge middleware — /screener only
+├── components/
+│   ├── Navbar.tsx              # Sticky global navbar with GitHub link
+│   ├── home/
+│   │   ├── HeroSection.tsx
+│   │   ├── LiveCounters.tsx
+│   │   └── HowItWorks.tsx
+│   └── dashboard/
+│       ├── AuthWall.tsx
+│       ├── DashboardStats.tsx
+│       ├── EmptyDashboard.tsx
+│       ├── ScoreTrendChart.tsx
+│       └── ScanHistoryTable.tsx
+└── app/
+    ├── layout.tsx
+    ├── page.tsx                # Real data — getDashboardStats + getLastScan
+    ├── sign-in/[[...sign-in]]/page.tsx
+    ├── sign-up/[[...sign-up]]/page.tsx
+    ├── screener/
+    │   ├── page.tsx
+    │   ├── ScreenerDropzone.tsx
+    │   └── ResultDashboard.tsx
+    ├── dashboard/
+    │   └── page.tsx            # Auth at page level — 3 render branches
+    └── jobs/
+        └── page.tsx            # "In Development" placeholder
+```
 
 ---
 
@@ -415,6 +589,45 @@ interface AtsAnalysisResult {
 }
 ```
 
+### 11.3 Shared Types Reference
+
+Complete content of `src/types/ats.ts`:
+
+```typescript
+export interface AtsAnalysisResult {
+  atsScore: number;
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  actionableSteps: string[];
+}
+
+export type AnalyzeResumeResult =
+  | { success: true; data: AtsAnalysisResult }
+  | { success: false; error: string };
+
+export type AtsMode = "legacy" | "modern" | "general";
+
+export type ScanRecord = {
+  id: string;
+  jobTitle: string;
+  legacyScore: number;
+  modernScore: number;
+  createdAt: Date;
+};
+
+export type DashboardStats = {
+  totalScans: number;
+  totalUsers: number;
+};
+```
+
+Type rules enforced throughout the codebase:
+- `AtsAnalysisResult` uses `interface`, everything else uses `type`.
+- `AnalyzeResumeResult` success branch uses `data` and not `result`.
+- Client components import types ONLY from `@/types/ats` — never from server actions or backend files to prevent leakage.
+- `LastScan` type was deliberately removed; `ScanRecord` serves both purposes.
+
 ---
 
 ## 12. Detailed Setup & Installation
@@ -447,9 +660,11 @@ You must create a `.env.local` file at the root of your project. The application
 # -----------------------------------------------------------------------------
 # DATABASE CONFIGURATION
 # -----------------------------------------------------------------------------
-# Connection string for Prisma ORM. Must point to a valid Postgres instance.
-# Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE
-DATABASE_URL="postgresql://postgres:password@localhost:5432/ats_db"
+# Connection string for Prisma ORM. 
+# DATABASE_URL uses PgBouncer pooler port 6543 at runtime.
+# DIRECT_URL uses direct connection port 5432 for migrations only.
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/DATABASE?pgbouncer=true"
+DIRECT_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE"
 
 # -----------------------------------------------------------------------------
 # CLERK AUTHENTICATION CONFIGURATION
@@ -461,8 +676,8 @@ CLERK_SECRET_KEY="sk_test_YOUR_CLERK_SECRET_KEY"
 # Redirection URIs for Clerk middleware to handle login flow
 NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
 NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL="/screener"
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL="/screener"
+NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL="/screener"
+NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL="/screener"
 
 # -----------------------------------------------------------------------------
 # ARTIFICIAL INTELLIGENCE CONFIGURATION
