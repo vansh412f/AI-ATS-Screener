@@ -3,8 +3,9 @@
 import type { ScanRecord } from "@/types/ats";
 import { BarChart3 } from "lucide-react";
 import {
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -85,10 +86,20 @@ export function ScoreTrendChart({ scans }: ScoreTrendChartProps) {
   return (
     <div className="h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart
+        <ComposedChart
           data={chartData}
           margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
         >
+          <defs>
+            <linearGradient id="legacyGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#f97316" stopOpacity={0.3} />
+              <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="modernGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#818cf8" stopOpacity={0.3} />
+              <stop offset="100%" stopColor="#818cf8" stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
           <XAxis
             dataKey="date"
@@ -107,6 +118,20 @@ export function ScoreTrendChart({ scans }: ScoreTrendChartProps) {
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend content={<CustomLegend />} />
+          <Area
+            type="monotone"
+            dataKey="legacy"
+            fill="url(#legacyGradient)"
+            stroke="none"
+            animationDuration={800}
+          />
+          <Area
+            type="monotone"
+            dataKey="modern"
+            fill="url(#modernGradient)"
+            stroke="none"
+            animationDuration={800}
+          />
           <Line
             type="monotone"
             dataKey="legacy"
@@ -125,7 +150,7 @@ export function ScoreTrendChart({ scans }: ScoreTrendChartProps) {
             activeDot={{ r: 6 }}
             animationDuration={800}
           />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
