@@ -39,48 +39,6 @@ interface ResultDashboardProps {
   onReset: () => void;
 }
 
-const LEGACY_THEME = {
-  accent: "#f97316",
-  accentMuted: "#f9731620",
-  accentBorder: "#f9731630",
-  scoreHigh: "text-orange-400",
-  scoreMid: "text-amber-400",
-  scoreLow: "text-red-400",
-  headerGradient: "from-orange-950/40 via-zinc-900/0",
-  badgeBg: "bg-orange-500/10",
-  badgeBorder: "border-orange-500/25",
-  badgeText: "text-orange-400",
-  cardBorder: "border-orange-500/15",
-  cardBg: "bg-orange-950/10",
-  icon: ScanSearch,
-  columnLabel: "Legacy ATS Score",
-  columnSub: "Strict keyword-parsing simulation",
-  tooltipBody:
-    "Legacy ATS platforms like Taleo, Workday, and SuccessFactors parse resumes as plain text and count exact keyword matches. They cannot infer meaning, synonyms, or context — a missing keyword is a missed point, even if you clearly have the skill.",
-  systemNames: "Taleo · Workday · SuccessFactors",
-} as const;
-
-const MODERN_THEME = {
-  accent: "#818cf8",
-  accentMuted: "#818cf820",
-  accentBorder: "#818cf830",
-  scoreHigh: "text-indigo-400",
-  scoreMid: "text-violet-400",
-  scoreLow: "text-red-400",
-  headerGradient: "from-indigo-950/40 via-zinc-900/0",
-  badgeBg: "bg-indigo-500/10",
-  badgeBorder: "border-indigo-500/25",
-  badgeText: "text-indigo-400",
-  cardBorder: "border-indigo-500/15",
-  cardBg: "bg-indigo-950/10",
-  icon: BrainCircuit,
-  columnLabel: "Modern Semantic Score",
-  columnSub: "AI-driven semantic alignment",
-  tooltipBody:
-    "Modern AI platforms like Greenhouse, Lever, and Eightfold use natural language processing to understand the meaning behind your resume. They evaluate conceptual skill alignment, career trajectory, and quantified impact — not just keyword frequency.",
-  systemNames: "Greenhouse · Lever · Eightfold",
-} as const;
-
 interface ColumnTheme {
   readonly accent: string;
   readonly accentMuted: string;
@@ -100,6 +58,48 @@ interface ColumnTheme {
   readonly tooltipBody: string;
   readonly systemNames: string;
 }
+
+const LEGACY_THEME: ColumnTheme = {
+  accent: "#f97316",
+  accentMuted: "#f9731620",
+  accentBorder: "#f9731630",
+  scoreHigh: "text-orange-400",
+  scoreMid: "text-amber-400",
+  scoreLow: "text-red-400",
+  headerGradient: "from-orange-950/40 via-zinc-900/0",
+  badgeBg: "bg-orange-500/10",
+  badgeBorder: "border-orange-500/25",
+  badgeText: "text-orange-400",
+  cardBorder: "border-orange-500/15",
+  cardBg: "bg-orange-950/10",
+  icon: ScanSearch,
+  columnLabel: "Legacy ATS Score",
+  columnSub: "Strict keyword-parsing simulation",
+  tooltipBody:
+    "Legacy ATS platforms like Taleo, Workday, and SuccessFactors parse resumes as plain text and count exact keyword matches. They cannot infer meaning, synonyms, or context — a missing keyword is a missed point, even if you clearly have the skill.",
+  systemNames: "Taleo · Workday · SuccessFactors",
+};
+
+const MODERN_THEME: ColumnTheme = {
+  accent: "#818cf8",
+  accentMuted: "#818cf820",
+  accentBorder: "#818cf830",
+  scoreHigh: "text-indigo-400",
+  scoreMid: "text-violet-400",
+  scoreLow: "text-red-400",
+  headerGradient: "from-indigo-950/40 via-zinc-900/0",
+  badgeBg: "bg-indigo-500/10",
+  badgeBorder: "border-indigo-500/25",
+  badgeText: "text-indigo-400",
+  cardBorder: "border-indigo-500/15",
+  cardBg: "bg-indigo-950/10",
+  icon: BrainCircuit,
+  columnLabel: "Modern Semantic Score",
+  columnSub: "AI-driven semantic alignment",
+  tooltipBody:
+    "Modern AI platforms like Greenhouse, Lever, and Eightfold use natural language processing to understand the meaning behind your resume. They evaluate conceptual skill alignment, career trajectory, and quantified impact — not just keyword frequency.",
+  systemNames: "Greenhouse · Lever · Eightfold",
+};
 
 function getScoreTextClass(score: number, theme: ColumnTheme): string {
   if (score >= 80) return theme.scoreHigh;
@@ -216,8 +216,6 @@ function EngineInfoTooltip({ body }: { body: string }) {
   );
 }
 
-// ScoreCard renders ONLY the header, ring, tier badge, and summary.
-// Insights are in the unified section below.
 function ScoreCard({
   data,
   theme,
@@ -241,7 +239,6 @@ function ScoreCard({
           theme.headerGradient
         )}
       >
-        {/* Engine label row */}
         <div className="flex items-center gap-2.5">
           <div
             className="flex items-center justify-center w-7 h-7 rounded-lg border shrink-0"
@@ -265,7 +262,6 @@ function ScoreCard({
           </div>
         </div>
 
-        {/* System names */}
         <div className="flex items-center gap-1.5">
           <Building2 className="w-3 h-3 text-zinc-700 shrink-0" />
           <span className="text-[10px] text-zinc-600 font-medium">
@@ -273,7 +269,6 @@ function ScoreCard({
           </span>
         </div>
 
-        {/* Score ring — centrepiece of this card */}
         <div className="flex flex-col items-center gap-3 py-3">
           <ScoreRing score={data.atsScore} theme={theme} />
 
@@ -290,7 +285,6 @@ function ScoreCard({
           </div>
         </div>
 
-        {/* Summary */}
         <p className="text-xs text-zinc-500 leading-relaxed">
           {data.summary}
         </p>
@@ -299,7 +293,6 @@ function ScoreCard({
   );
 }
 
-// Modern is more holistic, so its strengths/weaknesses/actions are the most useful for actual candidate improvement.
 function UnifiedInsights({ data }: { data: AtsAnalysisResult }) {
   return (
     <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/20 overflow-hidden">
@@ -317,13 +310,11 @@ function UnifiedInsights({ data }: { data: AtsAnalysisResult }) {
         </div>
       </div>
 
-      {/* Accordions closed by default — user opens what they need */}
       <Accordion
         type="multiple"
         defaultValue={[]}
         className="flex flex-col divide-y divide-zinc-800/50"
       >
-        {/* Strengths */}
         <AccordionItem value="strengths" className="border-0 px-0">
           <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-zinc-800/20 transition-colors [&>svg]:text-zinc-600 [&>svg]:w-3.5 [&>svg]:h-3.5">
             <div className="flex items-center gap-2.5">
@@ -355,7 +346,6 @@ function UnifiedInsights({ data }: { data: AtsAnalysisResult }) {
           </AccordionContent>
         </AccordionItem>
 
-        {/* Weaknesses */}
         <AccordionItem value="weaknesses" className="border-0 px-0">
           <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-zinc-800/20 transition-colors [&>svg]:text-zinc-600 [&>svg]:w-3.5 [&>svg]:h-3.5">
             <div className="flex items-center gap-2.5">
@@ -387,7 +377,6 @@ function UnifiedInsights({ data }: { data: AtsAnalysisResult }) {
           </AccordionContent>
         </AccordionItem>
 
-        {/* Action Plan */}
         <AccordionItem value="actions" className="border-0 px-0">
           <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-zinc-800/20 transition-colors [&>svg]:text-zinc-600 [&>svg]:w-3.5 [&>svg]:h-3.5">
             <div className="flex items-center gap-2.5">
@@ -458,8 +447,6 @@ export function ResultDashboard({ results, onReset }: ResultDashboardProps) {
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-        {/* Dashboard header row */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800">
@@ -485,13 +472,11 @@ export function ResultDashboard({ results, onReset }: ResultDashboardProps) {
           </button>
         </div>
 
-        {/* Top section — two score cards side by side */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ScoreCard data={results.legacy} theme={LEGACY_THEME} />
           <ScoreCard data={results.modern} theme={MODERN_THEME} />
         </div>
 
-        {/* Bottom section — unified insights from modern result */}
         <UnifiedInsights data={results.modern} />
       </div>
     </TooltipProvider>
