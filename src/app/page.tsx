@@ -14,6 +14,7 @@ export default async function HomePage() {
     ]);
 
     return (
+      
       <main className="bg-black min-h-screen">
         <HeroSection />
         <LiveCounters

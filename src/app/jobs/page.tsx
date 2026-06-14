@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 export default function JobBoardPage() {
   return (
     <main className="bg-black min-h-screen flex items-center justify-center px-6">
+      
       <div className="max-w-md w-full bg-zinc-900/40 border border-zinc-800 rounded-2xl p-8 text-center relative overflow-hidden">
         <div
           className="absolute inset-0 pointer-events-none"

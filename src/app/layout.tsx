@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "TalentAI - ATS & Resume Screener",
   description: "Analyze resumes and explore targeted jobs with AI integration",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({
