@@ -81,7 +81,25 @@ const MODERN_THEME = {
   systemNames: "Greenhouse · Lever · Eightfold",
 } as const;
 
-type ColumnTheme = typeof LEGACY_THEME;
+interface ColumnTheme {
+  readonly accent: string;
+  readonly accentMuted: string;
+  readonly accentBorder: string;
+  readonly scoreHigh: string;
+  readonly scoreMid: string;
+  readonly scoreLow: string;
+  readonly headerGradient: string;
+  readonly badgeBg: string;
+  readonly badgeBorder: string;
+  readonly badgeText: string;
+  readonly cardBorder: string;
+  readonly cardBg: string;
+  readonly icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  readonly columnLabel: string;
+  readonly columnSub: string;
+  readonly tooltipBody: string;
+  readonly systemNames: string;
+}
 
 function getScoreTextClass(score: number, theme: ColumnTheme): string {
   if (score >= 80) return theme.scoreHigh;
