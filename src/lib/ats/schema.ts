@@ -1,7 +1,8 @@
 import { SchemaType } from "@google/generative-ai";
+import type { Schema } from "@google/generative-ai";
 import type { AtsAnalysisResult } from "@/types/ats";
 
-export const ATS_RESPONSE_SCHEMA = {
+export const ATS_RESPONSE_SCHEMA: Schema = {
   type: SchemaType.OBJECT,
   properties: {
     atsScore: {
