@@ -51,7 +51,13 @@ export async function getScanHistory(userId: string): Promise<ScanRecord[]> {
       take: 50,
     });
 
-    return rows.map((row) => ({
+    return rows.map((row: {
+      id: string;
+      jobTitle: string;
+      legacyScore: number;
+      modernScore: number;
+      createdAt: Date;
+    }) => ({
       id: row.id,
       jobTitle: row.jobTitle,
       legacyScore: row.legacyScore,
