@@ -11,7 +11,11 @@ export type AnalyzeResumeResult =
   | { success: true; data: AtsAnalysisResult }
   | { success: false; error: string };
 
-export type AtsMode = "legacy" | "modern" | "general";
+export type CombinedAnalyzeResumeResult =
+  | { success: true; legacy: AtsAnalysisResult; modern: AtsAnalysisResult }
+  | { success: false; error: string };
+
+export type AtsMode = "legacy" | "modern";
 
 export type ScanRecord = {
   id: string;

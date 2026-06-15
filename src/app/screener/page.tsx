@@ -475,47 +475,38 @@ export default function ScreenerPage() {
     const resumeText = parseResult.text;
     const jdText = parseResult.jobDescription ?? null;
 
-    let legacyResult: Awaited<ReturnType<typeof analyzeResumeAction>>;
-    let modernResult: Awaited<ReturnType<typeof analyzeResumeAction>>;
+    let combinedResult: Awaited<ReturnType<typeof analyzeResumeAction>>;
 
-    try {
-      [legacyResult, modernResult] = await Promise.all([
-        analyzeResumeAction(resumeText, jdText, "legacy"),
-        analyzeResumeAction(resumeText, jdText, "modern"),
-      ]);
-    } catch (err) {
-      setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : "A network error occurred during analysis."
-      );
-      setLoadingPhase("idle");
-      return;
-    }
+try {
+  combinedResult = await analyzeResumeAction(resumeText, jdText);
+} catch (err) {
+  setErrorMessage(
+    err instanceof Error
+      ? err.message
+      : "A network error occurred during analysis."
+  );
+  setLoadingPhase("idle");
+  return;
+}
 
-    setLoadingPhase("idle");
+setLoadingPhase("idle");
 
-    if (!legacyResult.success) {
-      setErrorMessage(legacyResult.error);
-      return;
-    }
-    if (!modernResult.success) {
-      setErrorMessage(modernResult.error);
-      return;
-    }
-
+if (!combinedResult.success) {
+  setErrorMessage(combinedResult.error);
+  return;
+}
     logScanAction({
-      jobTitle: trimmedJd,
-      legacyScore: legacyResult.data.atsScore,
-      modernScore: modernResult.data.atsScore,
-    }).catch(() => {
-      console.error("[handleSubmit] Failed to log scan — non-blocking.");
-    });
+  jobTitle: trimmedJd,
+  legacyScore: combinedResult.legacy.atsScore,
+  modernScore: combinedResult.modern.atsScore,
+}).catch(() => {
+  console.error("[handleSubmit] Failed to log scan — non-blocking.");
+});
 
     setDashboardResults({
-      legacy: legacyResult.data,
-      modern: modernResult.data,
-    });
+  legacy: combinedResult.legacy,
+  modern: combinedResult.modern,
+});
   }, [uploadedFile, jobDescription, isLoading]);
 
   const showEmptyState = !isLoading && !dashboardResults && !errorMessage;
