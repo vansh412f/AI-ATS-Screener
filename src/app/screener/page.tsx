@@ -12,6 +12,10 @@ import {
   RotateCcw,
   ScanSearch,
   BrainCircuit,
+  Cloud,
+  Clock,
+  WifiOff,
+  FileX,
 } from "lucide-react";
 import { parsePdf, ParsePdfResult } from "@/actions/parse-pdf";
 import { analyzeResumeAction } from "@/actions/analyze-resume";
@@ -28,35 +32,179 @@ import { cn } from "@/lib/utils";
 
 type LoadingPhase = "idle" | "parsing" | "analyzing";
 
+type ErrorCategory = "overloaded" | "rate-limit" | "network" | "parse" | "generic";
 
-function ErrorPanel({
-  message,
-  onReset,
-}: {
+function categorizeError(message: string): ErrorCategory {
+  if (
+    message.includes("temporarily unavailable") ||
+    message.includes("peak traffic") ||
+    message.includes("overloaded") ||
+    message.includes("unavailable")
+  ) {
+    return "overloaded";
+  }
+  if (message.includes("daily limit")) {
+    return "rate-limit";
+  }
+  if (message.includes("network error")) {
+    return "network";
+  }
+  if (
+    message.includes("PDF") ||
+    message.includes("password") ||
+    message.includes("readable text") ||
+    message.includes("valid PDF") ||
+    message.includes("not appear to be a resume")
+  ) {
+    return "parse";
+  }
+  return "generic";
+}
+
+interface ErrorPanelProps {
   message: string;
   onReset: () => void;
-}) {
+  onRetry: () => void;
+}
+
+interface ErrorConfig {
+  icon: React.ElementType;
+  iconBg: string;
+  iconBorder: string;
+  iconColor: string;
+  glowColor: string;
+  borderColor: string;
+  cardBg: string;
+  title: string;
+  description: string;
+  showRetry: boolean;
+}
+
+function ErrorPanel({ message, onReset, onRetry }: ErrorPanelProps) {
+  const category = categorizeError(message);
+
+  const configs: Record<ErrorCategory, ErrorConfig> = {
+    overloaded: {
+      icon: Cloud,
+      iconBg: "bg-sky-500/10",
+      iconBorder: "border-sky-500/20",
+      iconColor: "text-sky-400",
+      glowColor: "#38bdf8",
+      borderColor: "border-sky-500/15",
+      cardBg: "bg-sky-950/10",
+      title: "Engines Are Busy",
+      description:
+        "Our AI analysis engines are handling high demand right now. This usually clears up within seconds — give it another try.",
+      showRetry: true,
+    },
+    "rate-limit": {
+      icon: Clock,
+      iconBg: "bg-orange-500/10",
+      iconBorder: "border-orange-500/20",
+      iconColor: "text-orange-400",
+      glowColor: "#f97316",
+      borderColor: "border-orange-500/15",
+      cardBg: "bg-orange-950/10",
+      title: "Daily Limit Reached",
+      description:
+        "You've used all 10 of your free scans for today. Your limit resets every 24 hours — come back tomorrow to continue.",
+      showRetry: false,
+    },
+    network: {
+      icon: WifiOff,
+      iconBg: "bg-zinc-800",
+      iconBorder: "border-zinc-700",
+      iconColor: "text-zinc-400",
+      glowColor: "#71717a",
+      borderColor: "border-zinc-700/40",
+      cardBg: "bg-zinc-900/20",
+      title: "Connection Issue",
+      description:
+        "We couldn't reach our servers. Check your internet connection and try again.",
+      showRetry: true,
+    },
+    parse: {
+      icon: FileX,
+      iconBg: "bg-red-500/10",
+      iconBorder: "border-red-500/20",
+      iconColor: "text-red-400",
+      glowColor: "#f87171",
+      borderColor: "border-red-500/15",
+      cardBg: "bg-red-950/10",
+      title: "Document Error",
+      description: message,
+      showRetry: false,
+    },
+    generic: {
+      icon: AlertCircle,
+      iconBg: "bg-zinc-800",
+      iconBorder: "border-zinc-700",
+      iconColor: "text-zinc-400",
+      glowColor: "#71717a",
+      borderColor: "border-zinc-700/40",
+      cardBg: "bg-zinc-900/20",
+      title: "Something Went Wrong",
+      description:
+        "An unexpected issue occurred on our end. Please try again in a moment.",
+      showRetry: true,
+    },
+  };
+
+  const config = configs[category];
+  const Icon = config.icon;
+
   return (
-    <div className="rounded-2xl border border-red-500/20 bg-red-950/10 p-6 animate-in fade-in duration-300">
-      <div className="flex items-start gap-3 mb-5">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 shrink-0">
-          <AlertCircle className="w-4 h-4 text-red-400" />
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-2xl border p-6 animate-in fade-in duration-300",
+        config.borderColor,
+        config.cardBg
+      )}
+    >
+      <div
+        className="absolute top-0 left-0 right-0 h-px"
+        style={{
+          backgroundImage: `linear-gradient(to right, transparent, ${config.glowColor}66, transparent)`,
+        }}
+      />
+
+      <div className="flex items-start gap-4">
+        <div
+          className={cn(
+            "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border",
+            config.iconBg,
+            config.iconBorder
+          )}
+        >
+          <Icon className={cn("w-5 h-5", config.iconColor)} />
         </div>
-        <div>
-          <p className="text-sm font-semibold text-red-300 mb-1.5">
-            Analysis Failed
+        <div className="flex flex-col gap-1.5">
+          <p className="text-sm font-semibold text-zinc-100">{config.title}</p>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            {config.description}
           </p>
-          <p className="text-xs text-red-400/70 leading-relaxed">{message}</p>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onReset}
-        className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
-      >
-        <RotateCcw className="w-3 h-3" />
-        Try again
-      </button>
+
+      <div className="mt-5 flex items-center gap-3">
+        {config.showRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="flex items-center gap-2 text-xs font-semibold text-black bg-white hover:bg-zinc-100 active:scale-[0.98] transition-all duration-200 rounded-lg px-4 py-2"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Try Again
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onReset}
+          className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors duration-150"
+        >
+          Start Over
+        </button>
+      </div>
     </div>
   );
 }
@@ -160,14 +308,12 @@ function LoadingState({ phase }: { phase: LoadingPhase }) {
       </div>
 
       <div className="flex flex-col items-center gap-8 px-8 py-14">
-        {/* Spinner */}
         <div className="relative w-16 h-16 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full border border-zinc-800" />
           <div className="absolute inset-0 rounded-full border border-t-zinc-400 animate-spin" />
           <Sparkles className="w-5 h-5 text-zinc-600" />
         </div>
 
-        {/* Status copy */}
         <div className="text-center">
           <p className="text-sm text-zinc-300 font-medium">
             {phase === "parsing"
@@ -181,7 +327,6 @@ function LoadingState({ phase }: { phase: LoadingPhase }) {
           </p>
         </div>
 
-        {/* Pipeline steps — moved here from the left column */}
         <div className="w-full max-w-xs flex flex-col gap-3">
           {steps.map((step) => (
             <div
@@ -236,11 +381,11 @@ function LoadingState({ phase }: { phase: LoadingPhase }) {
   );
 }
 
-
 export default function ScreenerPage() {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [jobDescription, setJobDescription] = useState<string>("");
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("idle");
+  const [selectedRole, setSelectedRole] = useState<string>("");
   const [dropError, setDropError] = useState<string | null>(null);
   const [dashboardResults, setDashboardResults] =
     useState<DashboardResults | null>(null);
@@ -288,6 +433,7 @@ export default function ScreenerPage() {
     setUploadedFile(null);
     setDropError(null);
     setJobDescription("");
+     setSelectedRole("");
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -327,11 +473,8 @@ export default function ScreenerPage() {
     setLoadingPhase("analyzing");
 
     const resumeText = parseResult.text;
-    // Pass null when no JD — the backend handles both modes gracefully with
-    // null, falling back to general best-practices scoring internally.
     const jdText = parseResult.jobDescription ?? null;
 
-    // Always fire both engines in parallel regardless of JD presence.
     let legacyResult: Awaited<ReturnType<typeof analyzeResumeAction>>;
     let modernResult: Awaited<ReturnType<typeof analyzeResumeAction>>;
 
@@ -352,7 +495,6 @@ export default function ScreenerPage() {
 
     setLoadingPhase("idle");
 
-    // Surface whichever call failed — prefer legacy error arbitrarily if both fail.
     if (!legacyResult.success) {
       setErrorMessage(legacyResult.error);
       return;
@@ -362,7 +504,6 @@ export default function ScreenerPage() {
       return;
     }
 
-        // Log once with both real scores now that Promise.all has settled
     logScanAction({
       jobTitle: trimmedJd,
       legacyScore: legacyResult.data.atsScore,
@@ -384,8 +525,6 @@ export default function ScreenerPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-6xl mx-auto px-6 py-12">
-
-        {/* ── Hero heading ── */}
         <div className="flex flex-col items-center text-center gap-3 mb-14">
           <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-3.5 py-1.5 mb-1">
             <Sparkles className="w-3 h-3 text-zinc-400" />
@@ -423,19 +562,18 @@ export default function ScreenerPage() {
           </div>
         </div>
 
-        {/* ── Main grid ── */}
         <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8 items-start">
-
-          {/* Left column — sticky input panel */}
           <div className="flex flex-col gap-6 lg:sticky lg:top-8">
             <ScreenerDropzone
               uploadedFile={uploadedFile}
-              jobDescription={jobDescription}
-              dropError={dropError}
-              isLoading={isLoading}
-              onDrop={handleDrop}
-              onRemoveFile={handleRemoveFile}
-              onJobDescriptionChange={setJobDescription}
+  jobDescription={jobDescription}
+  dropError={dropError}
+  isLoading={isLoading}
+  selectedRole={selectedRole}
+  onDrop={handleDrop}
+  onRemoveFile={handleRemoveFile}
+  onJobDescriptionChange={setJobDescription}
+  onSelectedRoleChange={setSelectedRole}
             />
 
             <Button
@@ -464,7 +602,6 @@ export default function ScreenerPage() {
             </Button>
           </div>
 
-          {/* Right column — results / loading / empty */}
           <div>
             {showEmptyState && <EmptyState />}
             {isLoading && <LoadingState phase={loadingPhase} />}
@@ -475,7 +612,11 @@ export default function ScreenerPage() {
               />
             )}
             {showError && errorMessage && (
-              <ErrorPanel message={errorMessage} onReset={handleReset} />
+              <ErrorPanel
+                message={errorMessage}
+                onReset={handleReset}
+                onRetry={handleSubmit}
+              />
             )}
           </div>
         </div>

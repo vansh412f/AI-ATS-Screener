@@ -8,7 +8,6 @@ import {
   Bot,
   Menu,
   Home,
-  Briefcase,
   FileText,
   LayoutDashboard,
 } from "lucide-react";
@@ -31,7 +30,6 @@ import { cn } from "@/lib/utils";
 const navigation = [
   { name: "Home", href: "/", icon: Home },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Job Board", href: "/jobs", icon: Briefcase },
   { name: "Resume Screener", href: "/screener", icon: FileText },
 ];
 

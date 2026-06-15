@@ -1,5 +1,6 @@
 export interface AtsAnalysisResult {
   atsScore: number;
+  isResume: boolean;
   summary: string;
   strengths: string[];
   weaknesses: string[];

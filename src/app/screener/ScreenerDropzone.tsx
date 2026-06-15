@@ -1,12 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useDropzone, FileRejection } from "react-dropzone";
 import { useAuth } from "@clerk/nextjs";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   FileText,
   UploadCloud,
@@ -16,8 +25,11 @@ import {
   ClipboardList,
   Lock,
   Sparkles,
+  Wand2,
+  TriangleAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { JOB_CATEGORIES, getJobDescription } from "@/lib/ats/job-descriptions";
 
 export interface UploadedFile {
   file: File;
@@ -28,9 +40,11 @@ interface ScreenerDropzoneProps {
   jobDescription: string;
   dropError: string | null;
   isLoading: boolean;
+  selectedRole: string;
   onDrop: (accepted: File[], rejected: FileRejection[]) => void;
   onRemoveFile: (e: React.MouseEvent) => void;
   onJobDescriptionChange: (value: string) => void;
+  onSelectedRoleChange: (role: string) => void;
 }
 
 function SectionLabel({
@@ -165,7 +179,7 @@ function LockedDropzoneTeaser() {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/80">
       <div className="absolute inset-0 bg-gradient-to-br from-zinc-900/50 via-black/80 to-black/90 backdrop-blur-sm" />
-      
+
       <div className="absolute inset-0 opacity-[0.03]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:24px_24px]" />
       </div>
@@ -185,7 +199,8 @@ function LockedDropzoneTeaser() {
             AI Resume Screener
           </h3>
           <p className="text-xs text-zinc-500 max-w-[220px] leading-relaxed">
-            Sign in to unlock dual ATS analysis powered by legacy and modern AI engines
+            Sign in to unlock dual ATS analysis powered by legacy and modern AI
+            engines
           </p>
         </div>
 
@@ -225,11 +240,14 @@ export function ScreenerDropzone({
   jobDescription,
   dropError,
   isLoading,
+  selectedRole,
   onDrop,
   onRemoveFile,
   onJobDescriptionChange,
+  onSelectedRoleChange,
 }: ScreenerDropzoneProps) {
   const { isSignedIn } = useAuth();
+  const [pendingRole, setPendingRole] = useState<string | null>(null);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -241,12 +259,47 @@ export function ScreenerDropzone({
   });
 
   const hasJobDescription = jobDescription.trim().length > 0;
+  const lastAutoFilledJd = React.useRef<string>("");
+
+  function handleRoleSelect(value: string) {
+    const jd = getJobDescription(value);
+    if (!jd) return;
+
+    const currentJd = jobDescription.trim();
+    const isAutoFilled =
+      currentJd === "" || currentJd === lastAutoFilledJd.current;
+
+    if (!isAutoFilled && currentJd.length > 0) {
+      setPendingRole(value);
+      return;
+    }
+
+    applyRole(value, jd);
+  }
+
+  function applyRole(role: string, jd: string) {
+    onSelectedRoleChange(role);
+    onJobDescriptionChange(jd);
+    lastAutoFilledJd.current = jd;
+    setPendingRole(null);
+  }
+
+  function confirmReplace() {
+    if (!pendingRole) return;
+    const jd = getJobDescription(pendingRole);
+    if (!jd) return;
+    applyRole(pendingRole, jd);
+  }
+
+  function cancelReplace() {
+    setPendingRole(null);
+  }
 
   return (
     <>
       <div>
         <SectionLabel icon={FileText} label="Resume" />
-        
+
         {!isSignedIn ? (
           <LockedDropzoneTeaser />
         ) : (
@@ -257,10 +310,10 @@ export function ScreenerDropzone({
                 isDragActive
                   ? "bg-gradient-to-br from-white/40 via-white/10 to-white/5"
                   : uploadedFile
-                  ? "bg-gradient-to-br from-emerald-500/40 via-emerald-500/10 to-transparent"
-                  : dropError
-                  ? "bg-gradient-to-br from-red-500/40 via-red-500/10 to-transparent"
-                  : "bg-gradient-to-br from-zinc-700/60 via-zinc-800/30 to-transparent hover:from-zinc-600/60 hover:via-zinc-700/30"
+                    ? "bg-gradient-to-br from-emerald-500/40 via-emerald-500/10 to-transparent"
+                    : dropError
+                      ? "bg-gradient-to-br from-red-500/40 via-red-500/10 to-transparent"
+                      : "bg-gradient-to-br from-zinc-700/60 via-zinc-800/30 to-transparent hover:from-zinc-600/60 hover:via-zinc-700/30"
               )}
             >
               <div
@@ -268,14 +321,16 @@ export function ScreenerDropzone({
                 className={cn(
                   "relative flex flex-col items-center justify-center rounded-[15px] p-8",
                   "outline-none transition-all duration-300 backdrop-blur-sm",
-                  isLoading ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+                  isLoading
+                    ? "cursor-not-allowed opacity-50"
+                    : "cursor-pointer",
                   isDragActive
                     ? "bg-white/[0.03]"
                     : uploadedFile
-                    ? "bg-emerald-950/20"
-                    : dropError
-                    ? "bg-red-950/20"
-                    : "bg-zinc-950/80 hover:bg-zinc-900/60"
+                      ? "bg-emerald-950/20"
+                      : dropError
+                        ? "bg-red-950/20"
+                        : "bg-zinc-950/80 hover:bg-zinc-900/60"
                 )}
               >
                 <input {...getInputProps()} />
@@ -298,7 +353,92 @@ export function ScreenerDropzone({
       </div>
 
       <div>
-        <SectionLabel icon={ClipboardList} label="Job Description" optional />
+        <SectionLabel icon={Wand2} label="Quick Fill" optional />
+        <Select
+          value={selectedRole}
+          onValueChange={handleRoleSelect}
+          disabled={isLoading || !isSignedIn}
+        >
+          <SelectTrigger
+            className={cn(
+              "w-full bg-zinc-950/90 border border-zinc-800 rounded-xl text-sm text-zinc-200 h-10",
+              "hover:border-zinc-700 focus:ring-0 focus:ring-offset-0",
+              "transition-colors duration-200",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+          >
+            <SelectValue placeholder="Select a target role..." />
+          </SelectTrigger>
+          <SelectContent className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl shadow-black/80">
+            {JOB_CATEGORIES.map((category) => (
+              <SelectGroup key={category.category}>
+                <SelectLabel className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 px-2">
+                  {category.category}
+                </SelectLabel>
+                {category.roles.map((role) => (
+                  <SelectItem
+                    key={role.label}
+                    value={role.label}
+                    className="text-sm text-zinc-300 focus:bg-zinc-800 focus:text-white rounded-lg cursor-pointer"
+                  >
+                    {role.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {pendingRole ? (
+          <div className="mt-3 flex items-center gap-3 rounded-xl border border-orange-500/20 bg-orange-950/20 px-3.5 py-2.5 animate-in fade-in duration-200">
+            <TriangleAlert className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+            <p className="text-xs text-orange-300 flex-1">
+              Replace your current job description with{" "}
+              <span className="font-semibold text-orange-200">
+                {pendingRole}
+              </span>
+              ?
+            </p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={cancelReplace}
+                className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors duration-150"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmReplace}
+                className="text-xs font-semibold text-black bg-white hover:bg-zinc-100 active:scale-[0.98] transition-all duration-200 rounded-lg px-3 py-1.5"
+              >
+                Replace
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-[11px] text-zinc-600 mt-2">
+            Or paste your own job description below
+          </p>
+        )}
+      </div>
+
+      <div>
+        <div className="flex items-center">
+          <SectionLabel icon={ClipboardList} label="Job Description" optional />
+          {selectedRole &&
+            jobDescription === lastAutoFilledJd.current && (
+              <div className="flex items-center gap-1.5 ml-auto mb-3">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] text-indigo-400 border-indigo-500/25 bg-indigo-500/10 px-1.5 py-0 h-4 border"
+                >
+                  {selectedRole}
+                </Badge>
+                <span className="text-[10px] text-zinc-600">· Edit freely</span>
+              </div>
+            )}
+        </div>
         <div
           className={cn(
             "p-px rounded-2xl transition-all duration-300",
