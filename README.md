@@ -2,11 +2,11 @@
 
 # 🚀 AI-Powered ATS Resume Screener: The Definitive Guide
 
-**A highly-advanced, Next.js 15 and React 19 powered Applicant Tracking System (ATS) simulator.**<br/>
+**A highly-advanced, Next.js 16 and React 19 powered Applicant Tracking System (ATS) simulator.**<br/>
 *Bridging the gap between job seekers and automated recruiting software through dual-engine, concurrent LLM evaluation.*
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js" alt="Next.js" />
+  <img src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js" alt="Next.js" />
   <img src="https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react" alt="React" />
   <img src="https://img.shields.io/badge/Google_Gemini-2.5_Flash-orange?style=for-the-badge&logo=google" alt="Gemini" />
   <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
@@ -36,7 +36,7 @@
     - [5.2 Sequential Data Flow Diagram](#52-sequential-data-flow-diagram)
     - [5.3 Key Architectural Decisions](#53-key-architectural-decisions)
 6. [Exhaustive Tech Stack Justification](#6-exhaustive-tech-stack-justification)
-    - [6.1 Core Framework: Next.js 15 & React 19](#61-core-framework-nextjs-15--react-19)
+    - [6.1 Core Framework: Next.js 16 & React 19](#61-core-framework-nextjs-16--react-19)
     - [6.2 Artificial Intelligence: Google Gemini 2.5 Flash](#62-artificial-intelligence-google-gemini-25-flash)
     - [6.3 Database & ORM: Prisma & PostgreSQL](#63-database--orm-prisma--postgresql)
     - [6.4 Authentication & Identity: Clerk](#64-authentication--identity-clerk)
@@ -75,11 +75,13 @@
 
 ## 1. Executive Summary
 
-The **AI-Powered ATS Resume Screener** is an enterprise-grade web application built to democratize the job application process. In an era where 90% of Fortune 500 companies utilize Applicant Tracking Systems (ATS) to filter resumes before human review, candidates are often rejected by opaque algorithms. 
+The **AI-Powered ATS Resume Screener** is an enterprise-grade web application built to democratize the job application process. In an era where 90% of Fortune 500 companies utilize Applicant Tracking Systems (ATS) to filter resumes before human review, candidates are often rejected by opaque algorithms.
 
-This project solves the "black box" problem by acting as a transparent simulator. It securely ingests a candidate's PDF resume, extracts the raw text in an ephemeral server-side environment, and leverages Google's Gemini 2.5 Flash Large Language Model (LLM) to perform a highly concurrent dual-engine analysis. 
+This project solves the "black box" problem by acting as a transparent simulator. It securely ingests a candidate's PDF resume, extracts the raw text in an ephemeral server-side environment, and leverages Google's Gemini 2.5 Flash Large Language Model (LLM) via a **single optimized API call** that evaluates both Legacy and Modern ATS personas simultaneously — halving API usage compared to naive dual-call architectures. A **Groq fallback layer** (Llama 3.3 70B → Llama 3.1 8B) automatically engages when Gemini quota is exhausted, guaranteeing near-100% uptime.
 
-The application outputs a side-by-side comparison of how a "Legacy" keyword-matching ATS and a "Modern" semantic AI ATS would evaluate the candidate against a specific Job Description (JD). The entire architecture is heavily optimized for zero-footprint data privacy, rapid parallel execution, and strict type safety from the database layer to the UI components.
+The application outputs a side-by-side comparison of how a "Legacy" keyword-matching ATS and a "Modern" semantic AI ATS would evaluate the candidate against a specific Job Description (JD). The entire architecture is heavily optimized for zero-footprint data privacy, rapid parallel execution, and strict type safety from the database layer to the UI components. The project is **live on Vercel** at production scale.
+
+> **Note on Next.js Version:** This project uses **Next.js 16**, which continues the App Router paradigm from Next.js 15 with incremental stability improvements. All App Router features, Server Actions, and React 19 integrations function identically.
 
 ---
 
@@ -107,19 +109,33 @@ Modern recruiting platforms (e.g., Eightfold.ai, Greenhouse AI modules, modern W
 
 ## 3. Key Technical & Product Features
 
-* **Dual ATS Engine Simulation:** Every resume scan fires two concurrent Gemini API calls via `Promise.all`. One simulates a legacy keyword-strict ATS (Taleo, Workday, SuccessFactors). One simulates a modern semantic AI ATS (Greenhouse, Lever, Eightfold). Results appear side-by-side.
+### ✅ Shipped Features (v1 → Current)
+
+* **Gemini Retry Logic:** `analyzeResumeAction` automatically retries on `503 Service Unavailable` / model-overloaded responses from the Gemini API — up to 3 attempts with exponential back-off — before surfacing an error to the user.
+* **Groq Fallback Engine:** When Gemini quota is exhausted (`429 RESOURCE_EXHAUSTED`), the system transparently falls back to **Groq's Llama 3.3 70B**, and if that also fails, cascades further to **Llama 3.1 8B**. Users receive results without any visible disruption.
+* **Single Combined Gemini Call:** The Legacy and Modern ATS evaluations are now issued as a **single structured Gemini prompt** that returns both personas in one JSON response. This halves Gemini API usage versus the previous dual-call architecture while preserving fully independent scoring.
+* **Categorized Error UI:** All API error states are rendered in distinct, color-coded panels (quota exceeded, overloaded, invalid key, network failure) so users immediately understand the failure category without raw technical strings leaking through.
+* **Research-Backed Prompt Redesign:** ATS scoring prompts have been redefined based on empirical ATS research and calibrated against real recruiter rubrics. Score distributions are tighter, feedback is more actionable, and legacy vs. modern persona differentiation is sharper.
+* **Non-Resume Detection (`isResume` field):** The Gemini response schema now includes an `isResume` boolean. If the uploaded document is not a resume (e.g., a cover letter, invoice, or random PDF), the screener blocks analysis early and renders a clear rejection message before any scoring occurs.
+* **Role Selector Quick Fill:** The Job Description input includes a dropdown with **42 pre-written, production-quality JDs** across engineering, design, product, data, and business roles. Users can populate the full JD in one click instead of writing it from scratch.
+* **Navbar Cleanup:** The **Job Board** (`/jobs`) navigation item has been removed from the global navbar. The placeholder route and page still exist but are no longer surfaced to users, reducing navbar clutter.
+* **Live Vercel Deployment:** The application is deployed and live in production on Vercel with all environment variables configured, PgBouncer pooling active, and edge middleware running globally.
+
+### Core Platform Features
+
+* **Dual ATS Engine Simulation:** Every resume scan evaluates two ATS personas — a legacy keyword-strict ATS (Taleo, Workday, SuccessFactors) and a modern semantic AI ATS (Greenhouse, Lever, Eightfold) — and renders results side-by-side.
 * **Premium Dark UI:** Pitch-black (`bg-black`) design system with `zinc-900` surfaces, gradient borders, glassmorphism overlays, animated SVG score rings with drop-shadow glows, Shadcn Tooltip engine explanations, and custom dark scrollbars via `ScrollArea`.
 * **Clerk Authentication:** Full auth flow with custom dark-themed sign-in/sign-up pages. Navbar uses Clerk v6 `<Show>` component for conditional rendering. `UserButton` with zinc ring styling.
 * **Route Protection:** Edge-compatible middleware protecting `/screener` ONLY. `/dashboard` handles auth at the PAGE LEVEL using `auth()` from Clerk. It renders an `AuthWall` component for unauthenticated users instead of redirecting. `/vault` does not exist in this project.
 * **Product-Led Growth Teaser:** Unauthenticated users visiting `/screener` see a premium locked dropzone with glassmorphism overlay, lock icon, and "Sign In to Unlock" CTA that redirects to `/sign-in?redirect_url=/screener` preserving their destination.
 * **Rate Limiting:** 10 scans per 24 hours enforced at the server action level using a Prisma count query with a 24-hour timestamp window. Fails open on database errors so legitimate users are never locked out during infrastructure hiccups.
-* **Scan Logging Architecture:** `analyzeResumeAction` handles only AI evaluation. `logScanAction` handles only database persistence. Both are called from `page.tsx` after `Promise.all` settles, writing a single database row with both real scores — preventing the double-row bug that occurs when each action logs independently.
+* **Scan Logging Architecture:** `analyzeResumeAction` handles only AI evaluation. `logScanAction` handles only database persistence. Both are called from `page.tsx` after the Gemini promise settles, writing a single database row with both real scores — preventing the double-row bug that occurs when each action logs independently.
 * **Modular Server Action Architecture:** Types, Gemini schema, prompt configs, and execution logic are separated into distinct files following strict separation of concerns.
 * **In-Memory PDF Parsing:** No file storage. PDFs are parsed server-side in memory using `pdf-parse` and immediately discarded after text extraction.
 * **Unified Insights Panel:** Below the two score cards, a single full-width accordion section (Strengths, Weaknesses, Action Plan) sourced from the modern result — closed by default to reduce cognitive load.
 * **Info Tooltips:** Each ATS engine label has a Shadcn Tooltip explaining what real-world systems it simulates and how it evaluates resumes — educating users about the ATS landscape.
 * **Score Delta Indicator:** Header row shows the point difference between legacy and modern scores with directional color coding (indigo for modern higher, orange for legacy higher).
-* **Professional Error Handling:** All Gemini API errors are mapped to clean user-facing messages. Raw provider strings (Gemini, Google, HTTP codes) are never exposed to the client.
+* **Categorized Error Handling:** All API errors are mapped to distinct color-coded error panels. Raw provider strings (Gemini, Google, HTTP codes) are never exposed to the client.
 * **Prisma 7 + Supabase Setup:** Uses the new Prisma 7 `pg` adapter pattern. Runtime queries use PgBouncer pooler (port 6543). Migrations use direct connection (port 5432). Singleton client pattern prevents connection pool exhaustion during Next.js hot reloads.
 
 ---
@@ -135,14 +151,14 @@ Modern recruiting platforms (e.g., Eightfold.ai, Greenhouse AI modules, modern W
 
 ## 5. Deep Architecture & Data Flow
 
-The project leverages Next.js 15's App Router, blurring the line between backend and frontend through React Server Components (RSC) and Server Actions.
+The project leverages Next.js 16's App Router, blurring the line between backend and frontend through React Server Components (RSC) and Server Actions.
 
 ### 5.1 High-Level System Context
 
 ```mermaid
 graph TD
     Client[Web Client / Browser]
-    Next[Next.js 15 Node Server]
+    Next[Next.js 16 Node Server]
     Gemini[Google Gemini API]
     DB[(PostgreSQL Database)]
     Clerk[Clerk Auth Service]
@@ -175,16 +191,12 @@ sequenceDiagram
     ServerAction->>PDFEngine: Pass ArrayBuffer
     PDFEngine-->>ServerAction: Return Extracted String
     
-    par Dual Engine Processing
-        ServerAction->>Gemini: Prompt + Text (Legacy Persona)
-        ServerAction->>Gemini: Prompt + Text (Modern Persona)
-    end
-    
-    Gemini-->>ServerAction: JSON (Legacy)
-    Gemini-->>ServerAction: JSON (Modern)
+    ServerAction->>Gemini: Single Combined Prompt (Legacy + Modern Personas)
+    Note over Gemini: Returns both scores in one JSON response
+    Gemini-->>ServerAction: Combined JSON {legacy: {...}, modern: {...}}
     
     ServerAction->>DB: INSERT ResumeScan (Scores, UserID)
-    ServerAction-->>Browser: Return typed AtsAnalysisResult[]
+    ServerAction-->>Browser: Return typed CombinedAnalyzeResumeResult
     Browser->>User: Render Animated ResultDashboard
 ```
 
@@ -192,14 +204,14 @@ sequenceDiagram
 
 Critical architectural decisions that must never be violated:
 
-1. **Dual Engine Concurrency:** `analyzeResumeAction` fires TWICE concurrently via `Promise.all` — once as "legacy", once as "modern". They must never be fired sequentially.
-2. **Persistence Timing:** `logScanAction` runs AFTER `Promise.all` settles in `screener/page.tsx`, writing ONE row with both scores. Never log inside `analyzeResumeAction` — this causes a double-row database entry bug.
+1. **Single Combined Gemini Call:** `analyzeResumeAction` issues ONE combined prompt to Gemini that returns both `legacy` and `modern` persona evaluations in a single structured JSON response (`CombinedAnalyzeResumeResult`). This halves API usage versus a naive dual-call approach.
+2. **Persistence Timing:** `logScanAction` runs AFTER `analyzeResumeAction` settles in `screener/page.tsx` (via a fire-and-forget `.catch()` call), writing ONE row with both scores. Never log inside `analyzeResumeAction` — this causes a double-row database entry bug.
 3. **Fail-Open Rate Limiting:** Rate limiting (10 scans/24 hours) lives inside `analyzeResumeAction` using `prisma.resumeScan.count` with a 24-hour timestamp window. It fails open on database errors so users are never locked out due to database infrastructure issues.
 4. **Client-Server Bundle Boundaries:** Types are imported from `@/types/ats` in client components — NEVER from "use server" files. This prevents server-only execution code from leaking into the client bundle.
-5. **Prompt Configuration Encapsulation:** `ATS_MODE_CONFIGS` is NOT exported from `prompts.ts` — only `buildPrompt()` is public. Internal prompt configurations remain encapsulated.
-6. **Unified Score Storage:** `modernScore` column stores both "modern" mode score AND "general" mode score: `modernScore: atsMode !== "legacy" ? score : 0`.
+5. **Prompt Configuration Encapsulation:** Internal ATS mode configurations are NOT exported from `prompts.ts` — only `buildCombinedPrompt()` is public. Internal prompt configurations remain encapsulated.
+6. **Middleware Route Protection:** The Clerk edge middleware protects `/dashboard(.*)` and `/vault(.*)`. The `/screener` route is **not** middleware-protected; instead, `analyzeResumeAction` enforces auth at the server action level via `auth()` from Clerk.
 7. **Prisma Connection Pooling:** The Prisma singleton uses `@prisma/adapter-pg` with a `PrismaPg` pool — making it hot-reload safe, maintaining a single instance, and preventing connection pool exhaustion.
-8. **Decentralized Auth Architecture:** `/dashboard` is NOT middleware-protected. Only `/screener` is. The dashboard handles authentication at the page level and renders `<AuthWall />` for unauthenticated users — this is an intentional product design choice, not an oversight.
+8. **`screener/page.tsx` is a Client Component:** The screener page uses `"use client"` and manages all state (upload, loading phase, results, error) locally in React state. It is NOT a Server Component.
 9. **Ephemeral PDF Processing:** PDF parsing is entirely in-memory. No file is ever written to disk, and there is no reliance on S3 buckets or local upload folders.
 10. **Data Slicing Constraints:** Data is sliced after retrieval: `getScanHistory` fetches up to 50 items, then the parent page slices them: `statsScans` uses all 50 (for aggregate calculations), `chartScans` uses the first 10 (`slice(0, 10)` to keep line charts clean), and `tableScans` uses the first 20 (`slice(0, 20)` for clear scannability).
 
@@ -209,9 +221,9 @@ Critical architectural decisions that must never be violated:
 
 In professional software engineering, every dependency introduced is a liability. The following section exhaustively justifies every piece of technology used in this application and explicitly details why popular alternatives were rejected.
 
-### 6.1 Core Framework: Next.js 15 & React 19
+### 6.1 Core Framework: Next.js 16 & React 19
 
-**What it is:** A React framework supporting hybrid static and server rendering, TypeScript support, smart bundling, and route pre-fetching.
+**What it is:** A React framework supporting hybrid static and server rendering, TypeScript support, smart bundling, and route pre-fetching. This project runs on **Next.js 16.2.6**, the latest stable release.
 
 * **Why We Chose It:**
   * **Server Actions:** By using `"use server"`, we can write asynchronous functions that execute on the backend but can be called directly from client components. This completely eliminates the need to build a distinct Express.js REST API.
@@ -321,12 +333,12 @@ The Next.js App Router structure enforces a highly logical separation of concern
 
 * **`layout.tsx`**: The root layout. Wraps the entire application in the `<ClerkProvider>` and defines global fonts (Inter) and global CSS variables for dark mode.
 * **`page.tsx`**: The public landing page. A Server Component that fetches real-time platform stats (total users, total scans) from the database using `getDashboardStats()`. For logged-in users, also fetches their most recent scan via `getLastScan(userId)` using parallel `Promise.all` fetching. Renders `HeroSection`, `LiveCounters`, and `HowItWorks`.
-* **`screener/page.tsx`**: The core application orchestrator. This file is deeply complex. It manages the state machine:
+* **`screener/page.tsx`**: The core application orchestrator. This is a **Client Component** (`"use client"`) that manages the entire state machine in React state:
   * `idle`: Waiting for user input.
   * `parsing`: File uploaded, currently extracting text.
-  * `analyzing`: Waiting for Gemini promises to resolve.
-  * It conditionally renders the Dropzone, Loading Spinners, or the Dashboard based on this state.
-* **`dashboard/page.tsx`**: The user analytics dashboard. A Server Component that handles authentication at the page level (no middleware redirect). It implements three render branches:
+  * `analyzing`: Waiting for Gemini promise to resolve.
+  * It conditionally renders the Dropzone, Loading Spinners, `ResultDashboard`, or `ErrorPanel` based on this state. After `analyzeResumeAction` resolves, `logScanAction` is called fire-and-forget (`.catch()`) to persist the score without blocking the UI.
+* **`dashboard/page.tsx`**: The user analytics dashboard. A Server Component that handles authentication at the page level (middleware also protects this route). It implements three render branches:
   * *Unauthenticated:* Renders `<AuthWall />` centered on screen (no redirect).
   * *Authenticated, 0 scans:* Renders `<PageHeader />` + `<EmptyDashboard />`.
   * *Authenticated, has scans:* Full dashboard with stats, chart, and history table.
@@ -348,10 +360,11 @@ Server actions are the backbone of our backend-less architecture.
   * **Parsing:** Instantiates the `PDFParse` worker, passing in the `CanvasFactory` from `@napi-rs/canvas`. Extracts the text and destroys the worker to free memory.
   * **Sanitization:** Removes excessive carriage returns, tabs, and duplicate spaces to save tokens before sending to Gemini.
 * **`analyze-resume.ts`**:
-  * Imports the Google Generative AI SDK.
-  * Holds the `ATS_MODE_CONFIGS` dictionary, defining the system instructions ("personas") for `legacy`, `modern`, and `general` modes.
-  * Constructs a massive, highly specific prompt dynamically injecting the candidate's text and the job description.
-  * Handles failure gracefully: intercepts `429 Too Many Requests` or `503 Service Unavailable` from Google and translates them into user-friendly error messages ("Our servers are experiencing peak volume").
+  * Imports the Google Generative AI SDK (`@google/generative-ai`) and Groq REST API.
+  * Calls `buildCombinedPrompt()` to generate a single prompt that instructs Gemini to evaluate the resume against both `legacy` and `modern` ATS personas in one response.
+  * Implements `callGeminiWithRetry()` — 3 attempts with exponential back-off (1s, 2s) on `503`/`500`/`UNAVAILABLE` errors. Non-retryable errors (`API_KEY_INVALID`, `RESOURCE_EXHAUSTED`, `SAFETY`) throw immediately.
+  * On `RESOURCE_EXHAUSTED` or Gemini failure: falls back to `callGroqWithFallback()` which cascades through `llama-3.3-70b-versatile` → `llama-3.1-8b-instant`.
+  * Returns a `CombinedAnalyzeResumeResult` — a single success object containing both `legacy` and `modern` `AtsAnalysisResult` objects.
 * **`get-dashboard-data.ts`**:
   * Exposes three read-only server actions for data fetching. All three functions fail gracefully and never throw to the caller.
   * **`getDashboardStats()`** &rarr; `Promise<DashboardStats>`: Fetches platform-wide aggregate stats (total scan count and distinct user count). Used on the public home page for social proof counters. Visible to all visitors including logged-out users. Uses `Promise.all` for parallel Prisma queries. Returns `{ totalScans: 0, totalUsers: 0 }` on any error.
@@ -421,54 +434,64 @@ Five dedicated components power the analytics dashboard:
 #### 7.3.4 Global Navbar Component
 
 * **`Navbar.tsx`**: Sticky global navigation bar. Client component (uses `usePathname` for active state detection).
-  * Navigation items in order: Home (`/`), Dashboard (`/dashboard`), Job Board (`/jobs`), Resume Screener (`/screener`).
+  * Navigation items in order: Home (`/`), Dashboard (`/dashboard`), Resume Screener (`/screener`). **The Job Board (`/jobs`) link has been intentionally removed** from the navbar to reduce clutter; the underlying route still exists but is not surfaced in the UI.
   * Active state uses exact match for Home route to prevent false positives: `item.href === "/" ? pathname === "/" : pathname === item.href`.
   * GitHub link: `https://github.com/vansh412f/AI-ATS-Screener`. Desktop renders an icon-only button in the right section before auth controls. Mobile renders centered between two `flex-1` divider lines with "GitHub" text label. Uses inline SVG for the GitHub icon (never use `lucide-react` for the GitHub icon as this project's version does not export it).
-  * Auth controls use Clerk v6 Show component: `<Show when="signed-out">` renders Sign In + Sign Up buttons, and `<Show when="signed-in">` renders `UserButton` with zinc ring styling.
+  * Auth controls use Clerk v7 `<SignedIn>` / `<SignedOut>` components: `<SignedOut>` renders Sign In + Sign Up buttons, and `<SignedIn>` renders `UserButton` with zinc ring styling.
   * Mobile menu uses the Shadcn `Sheet` component.
 
 ### 7.4 Complete File Architecture
 
 ```
-src/
-├── actions/
-│   ├── analyze-resume.ts       # Gemini API, auth-gated, rate-limited
-│   ├── get-dashboard-data.ts   # getDashboardStats, getLastScan, getScanHistory
-│   ├── log-scan.ts             # Single DB write after Promise.all settles
-│   └── parse-pdf.ts            # In-memory PDF text extraction
-├── types/
-│   └── ats.ts                  # All shared TypeScript types
-├── lib/
-│   ├── prisma.ts               # Singleton PrismaClient with pg Pool adapter
-│   └── ats/
-│       ├── schema.ts           # Gemini response schema + isValidAtsResult()
-│       └── prompts.ts          # buildPrompt() — ATS_MODE_CONFIGS is private
-├── middleware.ts               # Clerk edge middleware — /screener only
-├── components/
-│   ├── Navbar.tsx              # Sticky global navbar with GitHub link
-│   ├── home/
-│   │   ├── HeroSection.tsx
-│   │   ├── LiveCounters.tsx
-│   │   └── HowItWorks.tsx
-│   └── dashboard/
-│       ├── AuthWall.tsx
-│       ├── DashboardStats.tsx
-│       ├── EmptyDashboard.tsx
-│       ├── ScoreTrendChart.tsx
-│       └── ScanHistoryTable.tsx
-└── app/
-    ├── layout.tsx
-    ├── page.tsx                # Real data — getDashboardStats + getLastScan
-    ├── sign-in/[[...sign-in]]/page.tsx
-    ├── sign-up/[[...sign-up]]/page.tsx
-    ├── screener/
-    │   ├── page.tsx
-    │   ├── ScreenerDropzone.tsx
-    │   └── ResultDashboard.tsx
-    ├── dashboard/
-    │   └── page.tsx            # Auth at page level — 3 render branches
-    └── jobs/
-        └── page.tsx            # "In Development" placeholder
+.
+├── prisma/
+│   └── schema.prisma           # Database schema — ResumeScan model
+├── prisma.config.ts            # Prisma 7 config — schema path, migrations path
+├── next.config.ts              # serverExternalPackages for pdf-parse & @napi-rs/canvas
+└── src/
+    ├── actions/
+    │   ├── analyze-resume.ts       # Single combined Gemini call, auth-gated, rate-limited, Groq fallback
+    │   ├── get-dashboard-data.ts   # getDashboardStats, getLastScan, getScanHistory
+    │   ├── log-scan.ts             # Single DB write, called fire-and-forget from screener page
+    │   └── parse-pdf.ts            # In-memory PDF text extraction
+    ├── types/
+    │   └── ats.ts                  # AtsAnalysisResult, CombinedAnalyzeResumeResult, ScanRecord, etc.
+    ├── lib/
+    │   ├── prisma.ts               # Singleton PrismaClient with PrismaPg pool adapter
+    │   ├── utils.ts                # cn() utility (clsx + tailwind-merge)
+    │   └── ats/
+    │       ├── schema.ts           # Gemini response schema + isValidCombinedResult()
+    │       ├── prompts.ts          # buildCombinedPrompt() — internal configs are private
+    │       └── job-descriptions.ts # 42 pre-written JDs across 5 categories (Role Selector)
+    ├── middleware.ts               # Clerk edge middleware — protects /dashboard and /vault
+    ├── components/
+    │   ├── Navbar.tsx              # Sticky global navbar with GitHub link
+    │   ├── home/
+    │   │   ├── HeroSection.tsx
+    │   │   ├── LiveCounters.tsx
+    │   │   └── HowItWorks.tsx
+    │   ├── dashboard/
+    │   │   ├── AuthWall.tsx
+    │   │   ├── DashboardStats.tsx
+    │   │   ├── EmptyDashboard.tsx
+    │   │   ├── ScoreTrendChart.tsx
+    │   │   └── ScanHistoryTable.tsx
+    │   └── ui/                     # Shadcn UI component copies (Button, Badge, Sheet, etc.)
+    └── app/
+        ├── layout.tsx
+        ├── globals.css
+        ├── icon.png
+        ├── page.tsx                # Real data — getDashboardStats + getLastScan
+        ├── sign-in/[[...sign-in]]/page.tsx
+        ├── sign-up/[[...sign-up]]/page.tsx
+        ├── screener/
+        │   ├── page.tsx            # "use client" — state machine, calls server actions
+        │   ├── ScreenerDropzone.tsx
+        │   └── ResultDashboard.tsx
+        ├── dashboard/
+        │   └── page.tsx            # Server Component — 3 render branches
+        └── jobs/
+            └── page.tsx            # "In Development" placeholder
 ```
 
 ---
@@ -536,22 +559,27 @@ Because LLM API calls cost money, abuse prevention is critical.
 ### 10.1 Concurrent Promise Execution
 The naive approach to dual ATS simulation would be sequential:
 ```typescript
-// BAD: Takes 8 seconds
+// OLD (naive) approach — two sequential calls: ~8 seconds
 const legacy = await analyzeResumeAction(text, jd, "legacy");
 const modern = await analyzeResumeAction(text, jd, "modern");
-```
-Our architecture leverages `Promise.all` to fire both network requests to Google simultaneously:
-```typescript
-// GOOD: Takes 4 seconds
+
+// ALSO NAIVE — two parallel calls still double the API usage
 const [legacyResult, modernResult] = await Promise.all([
   analyzeResumeAction(text, jd, "legacy"),
   analyzeResumeAction(text, jd, "modern"),
 ]);
 ```
-This halves the perceived latency for the end user.
+The current architecture issues a **single combined prompt** that returns both personas simultaneously in one structured JSON object:
+```typescript
+// CURRENT — single call, half the API cost, same latency as parallel
+const combinedResult = await analyzeResumeAction(resumeText, jdText);
+// combinedResult.legacy → AtsAnalysisResult
+// combinedResult.modern → AtsAnalysisResult
+```
+This halves Gemini API usage while maintaining the same response latency, since both persona evaluations are handled by the model in a single inference pass.
 
 ### 10.2 Next.js Bundle Optimization
-We rely heavily on Lucide React for iconography. Importing icons improperly can bundle thousands of unused SVGs. We use explicit imports, and Next.js 15's advanced SWC compiler treeshakes unused components automatically.
+We rely heavily on Lucide React for iconography. Importing icons improperly can bundle thousands of unused SVGs. We use explicit imports, and Next.js 16's advanced SWC compiler treeshakes unused components automatically.
 Furthermore, `pdf-parse` and `@napi-rs/canvas` are strictly used inside server actions. They are entirely stripped from the client bundle, ensuring the browser only downloads React and Tailwind classes, resulting in sub-100kb payload sizes.
 
 ---
@@ -571,17 +599,21 @@ type ParsePdfResult =
   | { success: false; text: null; error: string };
 ```
 
-### 11.2 `analyzeResumeAction(resumeText, jobDescription, atsMode)`
+### 11.2 `analyzeResumeAction(resumeText, jobDescription)`
 * **Location:** `src/actions/analyze-resume.ts`
-* **Purpose:** Constructs the prompt, communicates with Gemini, and strictly validates the returned JSON.
+* **Purpose:** Constructs a **single combined prompt**, communicates with Gemini (with Groq fallback), validates the returned JSON, and returns both legacy and modern scores in one response.
 * **Input:** 
   * `resumeText`: The sanitized string from `parsePdf`.
-  * `jobDescription`: Target JD string or null.
-  * `atsMode`: Literal union `"legacy" | "modern" | "general"`.
-* **Returns:** `Promise<AnalyzeResumeResult>`
+  * `jobDescription`: Target JD string or `null` (optional).
+* **Returns:** `Promise<CombinedAnalyzeResumeResult>`
 ```typescript
+type CombinedAnalyzeResumeResult =
+  | { success: true; legacy: AtsAnalysisResult; modern: AtsAnalysisResult }
+  | { success: false; error: string };
+
 interface AtsAnalysisResult {
   atsScore: number;
+  isResume: boolean;
   summary: string;
   strengths: string[];
   weaknesses: string[];
@@ -596,6 +628,7 @@ Complete content of `src/types/ats.ts`:
 ```typescript
 export interface AtsAnalysisResult {
   atsScore: number;
+  isResume: boolean;  // added for non-resume detection
   summary: string;
   strengths: string[];
   weaknesses: string[];
@@ -606,7 +639,12 @@ export type AnalyzeResumeResult =
   | { success: true; data: AtsAnalysisResult }
   | { success: false; error: string };
 
-export type AtsMode = "legacy" | "modern" | "general";
+// Primary return type from analyzeResumeAction — single combined call
+export type CombinedAnalyzeResumeResult =
+  | { success: true; legacy: AtsAnalysisResult; modern: AtsAnalysisResult }
+  | { success: false; error: string };
+
+export type AtsMode = "legacy" | "modern";  // "general" mode removed
 
 export type ScanRecord = {
   id: string;
@@ -624,9 +662,10 @@ export type DashboardStats = {
 
 Type rules enforced throughout the codebase:
 - `AtsAnalysisResult` uses `interface`, everything else uses `type`.
-- `AnalyzeResumeResult` success branch uses `data` and not `result`.
+- `CombinedAnalyzeResumeResult` is the primary action return type — `AnalyzeResumeResult` remains defined but is not used by the main action path.
 - Client components import types ONLY from `@/types/ats` — never from server actions or backend files to prevent leakage.
 - `LastScan` type was deliberately removed; `ScanRecord` serves both purposes.
+- `AtsMode` no longer includes `"general"` — the general mode was removed when the architecture switched to a single combined prompt.
 
 ---
 
@@ -660,7 +699,7 @@ You must create a `.env.local` file at the root of your project. The application
 # -----------------------------------------------------------------------------
 # DATABASE CONFIGURATION
 # -----------------------------------------------------------------------------
-# Connection string for Prisma ORM. 
+# Connection string for Prisma ORM.
 # DATABASE_URL uses PgBouncer pooler port 6543 at runtime.
 # DIRECT_URL uses direct connection port 5432 for migrations only.
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/DATABASE?pgbouncer=true"
@@ -682,8 +721,14 @@ NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL="/screener"
 # -----------------------------------------------------------------------------
 # ARTIFICIAL INTELLIGENCE CONFIGURATION
 # -----------------------------------------------------------------------------
-# Retrieve this from Google AI Studio (aistudio.google.com/app/apikey)
+# Primary AI provider — Google Gemini 2.5 Flash.
+# Retrieve from Google AI Studio (aistudio.google.com/app/apikey)
 GEMINI_API_KEY="AIzaSy_YOUR_GEMINI_API_KEY"
+
+# Fallback AI provider — Groq (Llama 3.3 70B → Llama 3.1 8B cascade).
+# Engaged automatically when Gemini returns 429 RESOURCE_EXHAUSTED.
+# Retrieve from console.groq.com
+GROQ_API_KEY="gsk_YOUR_GROQ_API_KEY"
 ```
 
 **Step 3: Database Initialization**
@@ -706,10 +751,13 @@ Navigate your browser to `http://localhost:3000`.
 This application is designed to be highly portable, though Next.js apps run best on Vercel.
 
 ### 13.1 Vercel Standard Deployment
+
+> **✅ Status: Live in Production.** The application is currently deployed and running on Vercel. The steps below document the deployment process for contributors forking and deploying their own instance.
+
 1. Push your code to a GitHub repository.
 2. Log into Vercel and select "Add New Project".
 3. Import your GitHub repository.
-4. **Crucial:** In the environment variables section, paste all variables from your `.env.local` file.
+4. **Crucial:** In the environment variables section, paste all variables from your `.env.local` file. Include `GROQ_API_KEY` in addition to the Gemini and Clerk keys to enable the Groq fallback engine.
 5. In the Build Command section, ensure it is set to `npm run build`. Vercel will automatically detect Prisma and generate the client.
 6. Click Deploy. Vercel will automatically deploy the frontend to its CDN and the Server Actions to AWS Lambda functions globally.
 

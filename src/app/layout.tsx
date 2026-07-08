@@ -7,7 +7,7 @@ import Navbar from "@/components/Navbar";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "TalentAI - ATS & Resume Screener",
+  title: "AI Powered ATS Screener",
   description: "Analyze resumes and explore targeted jobs with AI integration",
   icons: {
     icon: "/icon.png",
