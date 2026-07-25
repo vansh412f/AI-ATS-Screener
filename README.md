@@ -344,9 +344,10 @@ After Redis, rate limiting uses a sliding window algorithm via Upstash's `@upsta
   * **Value:** Full JSON string of `CombinedAnalyzeResumeResult`
   * **TTL:** 24 hours (86,400 seconds)
   * **Cache Key Generation:** The key is a SHA-256 hash of the heavily normalized resume text combined with the normalized job description text.
-* **Rate Limit Counters:** 
+* **Rate Limit Counters (Sliding Window):** 
   * **Key pattern:** `ratelimit:ats:{userId}`
-  * **TTL:** 24 hours (auto-managed sliding window)
+  * **Algorithm:** We implement a **Sliding Window** rate-limiting technique (10 requests per 24 hours) via `@upstash/ratelimit`. Unlike a fixed window that resets everyone at midnight, the sliding window evaluates a rolling 24-hour period per user. This guarantees a smoother and more fair user experience while strictly protecting the LLM API quota from sudden burst abuse.
+  * **TTL:** 24 hours (auto-managed by the sliding window algorithm)
 * **Failure Handling (Fail Open):** Redis failure never blocks a user. The system uses a three-tier fallback:
   1. *Tier 1:* Redis handles both cache and rate limiting.
   2. *Tier 2 (Redis down):* Cache skipped entirely, rate limiting falls back to PostgreSQL COUNT query.
