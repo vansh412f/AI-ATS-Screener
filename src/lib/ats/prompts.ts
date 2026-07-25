@@ -77,12 +77,15 @@ STEP 4 — SCORING CALCULATION:
    - Floor at 5. Ceiling at 97 (no resume is perfect).
 
 ADDITIONAL PENALTIES — Apply these on top:
-   - Resume exceeds 2 pages for candidates with under 10 years experience: -4 points
+   - Resume exceeds 1 page (a highly optimized resume should fit on 1 page): -5 points
    - No skills section present or skills buried inside job descriptions only: -6 points
    - Date gaps greater than 6 months with no explanation: -3 points per gap, max -9 points
    - Job hopping: 3 or more jobs in 3 years with tenures under 12 months each: -5 points
    - Objective statement present instead of professional summary (outdated signal): -2 points
    - Resume is a single block of text with no clear section separation: -10 points
+   - Resume lacks sufficient whitespace, formatting is excessively dense/cluttered, or lacks proper spacing: -5 points
+   - Missing explicit links (URLs) for listed projects or missing social profiles (LinkedIn, GitHub) at the top: -4 points
+   - Club or college experience taking up excessive space and masquerading as professional tech experience: -4 points
 
 CONTENT VOLUME RULE — Apply before any other scoring:
    - A resume under 200 words of actual content CANNOT score above 35 regardless of formatting or keywords. Brevity equals missing content equals low scores. This is non-negotiable.
@@ -133,6 +136,7 @@ DIMENSION 1 — SKILLS ALIGNMENT (30% of score)
    - Semantic matching: "built ML pipelines" satisfies "machine learning engineering". "container orchestration with Docker and Kubernetes" satisfies "containerization". Award full credit for demonstrated semantic equivalency.
    - Skill depth signals: Does the candidate mention specific versions, configurations, scale, or constraints? ("optimized PostgreSQL queries for 10M+ row tables" vs "worked with PostgreSQL"). Depth signals indicate real proficiency.
    - Skill recency: Technologies used in the last 2 years carry full weight. Technologies only mentioned in roles from 5+ years ago carry 50% weight. Outdated-only technology stacks are penalized.
+   - CERTIFICATIONS: Relevant certifications (e.g., AWS, CKA) add value (+2 to +4 points). However, if the candidate lists certifications but has NO related skills or projects to back them up, it is a negative signal (noise/distraction) and should incur a slight penalty (-2 points).
    - Coverage: What percentage of the role's core skill requirements are addressed — either directly or semantically? Below 50% coverage is a significant deduction regardless of quality.
    - SCORING ANCHOR: Perfect skills alignment (all core skills demonstrated with depth and recency) = 28-30 points. Strong alignment with minor gaps = 22-27 points. Moderate alignment, core skills present but shallow = 15-21 points. Weak alignment, significant gaps in core skills = 8-14 points. Poor alignment = 0-7 points.
 
@@ -141,6 +145,7 @@ DIMENSION 2 — EVIDENCE QUALITY AND IMPACT (25% of score)
    - STRONG EVIDENCE: Quantified outcomes with specific metrics ("reduced API latency by 43%", "grew retention from 61% to 79%", "shipped feature used by 2.3M users", "led team of 8 engineers"). Each strong evidence bullet is worth significant points.
    - MODERATE EVIDENCE: Qualitative outcomes without metrics ("improved system performance", "led a team", "worked on high-traffic platform"). Demonstrates competency but cannot be verified or compared.
    - WEAK EVIDENCE: Responsibility descriptions with no outcomes ("responsible for backend development", "worked with React", "managed projects"). These describe job duties, not accomplishments. They provide minimal signal.
+   - PROJECT EVALUATION: A strong resume typically includes 2 to 3 well-explained projects. Projects must be explained significantly with clear technical details and outcomes. Furthermore, projects MUST include links (GitHub, live site, etc.) to be considered strong evidence; unlinked projects lose credibility. Missing LinkedIn or GitHub profile links at the top of the resume is also a negative signal.
    - SCORING ANCHOR: 70%+ of bullets are strong evidence = 22-25 points. 40-69% strong evidence = 16-21 points. 20-39% strong evidence, rest moderate = 10-15 points. Mostly weak evidence with some moderate = 4-9 points. Almost entirely responsibility-listing with no outcomes = 0-3 points.
    - CRITICAL RULE: A resume cannot score above 72 overall if this dimension scores below 10. Impact evidence is non-negotiable for high scores.
 
@@ -155,6 +160,7 @@ DIMENSION 4 — ROLE AND INDUSTRY RELEVANCE (15% of score)
    - Domain experience: Has the candidate worked in the same industry or solved similar problems? A fintech engineer applying to a fintech role carries domain knowledge that has real value.
    - Problem type alignment: The specific technical or functional problems the candidate has solved — do they match the problems inherent to this role?
    - Transferability: If domain experience is absent, how transferable is the candidate's experience? A B2C product engineer moving to B2B has a steeper learning curve than a B2B engineer changing companies.
+   - EXPERIENCE RELEVANCE FILTER: Experience must be highly relevant to the role. College or club experience can be positive for soft skills, but it should be kept brief and NOT be heavily explained as if it were a professional engineering role. Penalize if club/college experience dominates the resume.
    - SCORING ANCHOR: Direct industry and problem-type experience = 13-15 points. Adjacent industry with high transferability = 9-12 points. Different domain but core skills transfer well = 5-8 points. Significant domain gap = 2-4 points. Fundamental mismatch = 0-1 points.
 
 DIMENSION 5 — RESUME PROFESSIONALISM AND SIGNAL CLARITY (10% of score)
@@ -162,6 +168,7 @@ DIMENSION 5 — RESUME PROFESSIONALISM AND SIGNAL CLARITY (10% of score)
    - Is the summary or objective statement aligned with the target role? A generic summary loses points.
    - Are claims specific and falsifiable, or vague and generic? "Excellent communicator" is noise. "Presented quarterly roadmap to C-suite stakeholders across 3 business units" is signal.
    - Grammar, spelling, and professional tone: Minor issues are acceptable. Pervasive errors signal carelessness.
+   - WHITESPACE & FLUFF: Good resumes have balanced whitespace and spacing. Resumes that are excessively dense, lack breathing room, or contain unnecessary things/fluff (irrelevant hobbies, unrelated side-gigs) will lose clarity points.
    - SCORING ANCHOR: Highly professional, specific, scannable profile = 8-10 points. Generally professional with minor issues = 5-7 points. Some clarity problems but readable = 3-4 points. Difficult to parse or significantly unprofessional = 0-2 points.
 
 CONTENT VOLUME RULE — Apply before any other scoring:
@@ -213,10 +220,12 @@ MODE: Targeted scoring. Both engines must score against this specific job descri
   return `You are simultaneously running TWO distinct ATS engine simulations on the same resume. You must produce two completely independent evaluations — one from a legacy keyword-matching engine, one from a modern semantic AI engine. These are different systems with fundamentally different scoring philosophies and MUST produce meaningfully different scores.
 
 CRITICAL: The legacy and modern scores should differ by at least 10-20 points for most resumes. A well-written narrative resume with strong impact but imperfect keyword density should score notably lower on legacy than modern. A keyword-stuffed resume with weak narrative should score higher on legacy than modern. If both engines produce similar scores, you are not simulating the engines correctly.
-
-DOCUMENT CLASSIFICATION: First determine if this document is a resume or CV. Set isResume to false for: cover letters alone, tax forms, invoices, academic papers, articles, legal contracts, blank documents. Set isResume to true for: resumes, CVs, LinkedIn exports, portfolio documents that include work history.
-
-If isResume is false, set all scores to 0 and all arrays to empty — do not attempt to score a non-resume document.
+ 
+DOCUMENT CLASSIFICATION (MANDATORY FIRST STEP): You MUST first determine if the provided document is a resume/CV. 
+Set isResume to false IMMEDIATELY if the document is: a cover letter alone, a tax form, an invoice, an academic paper, an article, a legal contract, a blank document, random code, or any non-resume text. 
+Set isResume to true ONLY for: actual resumes, CVs, LinkedIn exports, or professional portfolios that include work history.
+ 
+If isResume is false, you MUST set all atsScore fields to 0 and provide empty arrays for strengths, weaknesses, and actionableSteps. Do not attempt to evaluate a non-resume document under any circumstances.
 
 ---
 

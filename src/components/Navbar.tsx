@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Show, UserButton } from "@clerk/nextjs";
+import { Show, UserButton, useClerk } from "@clerk/nextjs";
 import {
   Bot,
   Menu,
@@ -44,6 +44,7 @@ function GitHubIcon(props: React.ComponentPropsWithoutRef<"svg">) {
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const { signOut } = useClerk();
 
   return (
     <nav className="sticky top-0 z-50 border-b border-zinc-800 bg-black/80 backdrop-blur-md">
@@ -231,18 +232,34 @@ export default function Navbar() {
                     </Show>
 
                     <Show when="signed-in">
-                      <div className="flex items-center gap-3 px-1">
-                        <UserButton
-                          appearance={{
-                            elements: {
-                              avatarBox:
-                                "w-8 h-8 rounded-lg ring-1 ring-zinc-700",
-                            },
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-3 px-1">
+                          <UserButton
+                            appearance={{
+                              elements: {
+                                avatarBox:
+                                  "w-8 h-8 rounded-lg ring-1 ring-zinc-700",
+                              },
+                            }}
+                          />
+                          <span className="text-sm text-zinc-400">
+                            My Account
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsOpen(false);
+                            signOut();
                           }}
-                        />
-                        <span className="text-sm text-zinc-400">
-                          My Account
-                        </span>
+                          className={cn(
+                            "w-full border-zinc-700 bg-transparent text-zinc-300",
+                            "hover:bg-zinc-900 hover:text-red-400 hover:border-zinc-700",
+                            "transition-all duration-200"
+                          )}
+                        >
+                          Sign Out
+                        </Button>
                       </div>
                     </Show>
                   </div>
