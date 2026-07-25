@@ -19,7 +19,7 @@ export type ParsePdfResult =
       error: string;
     };
 
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_MIME_TYPE = "application/pdf";
 
 function validateFile(file: File): string | null {
@@ -46,6 +46,9 @@ function sanitizeText(raw: string): string {
 }
 
 export async function parsePdf(formData: FormData): Promise<ParsePdfResult> {
+  const t0 = Date.now();
+  console.log(`[TIMING] parsePdf: start`);
+
   const rawFile = formData.get("resume");
 
   if (!rawFile) {
@@ -67,15 +70,19 @@ export async function parsePdf(formData: FormData): Promise<ParsePdfResult> {
       ? rawJobDescription.trim()
       : null;
 
+  const tBuffer = Date.now();
   let buffer: Buffer;
   try {
     const arrayBuffer = await rawFile.arrayBuffer();
     buffer = Buffer.from(arrayBuffer);
+    console.log(`[TIMING] parsePdf: arrayBuffer read => ${Date.now() - tBuffer}ms | size=${rawFile.size} bytes`);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    console.error(`[TIMING] parsePdf: arrayBuffer FAILED after ${Date.now() - tBuffer}ms`);
     return { success: false, text: null, error: `Failed to read file into memory: ${message}` };
   }
 
+  const tParse = Date.now();
   let parsedText: string;
   let pageCount: number;
 
@@ -85,8 +92,10 @@ export async function parsePdf(formData: FormData): Promise<ParsePdfResult> {
     parsedText = result.text ?? "";
     pageCount = result.total;
     await parser.destroy();
+    console.log(`[TIMING] parsePdf: pdf parsing => ${Date.now() - tParse}ms | pages=${pageCount} textLength=${parsedText.length} chars`);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown parsing error";
+    console.error(`[TIMING] parsePdf: pdf parsing FAILED after ${Date.now() - tParse}ms => ${message}`);
 
     if (message.toLowerCase().includes("password")) {
       return { success: false, text: null, error: "This PDF is password-protected. Please upload an unlocked copy." };
@@ -105,6 +114,8 @@ export async function parsePdf(formData: FormData): Promise<ParsePdfResult> {
       error: "No readable text was found in this PDF. It may be a scanned image without an OCR layer. Please use a text-based PDF.",
     };
   }
+
+  console.log(`[TIMING] parsePdf: COMPLETE => ${Date.now() - t0}ms`);
 
   return {
     success: true,

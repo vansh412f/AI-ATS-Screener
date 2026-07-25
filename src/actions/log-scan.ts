@@ -16,6 +16,9 @@ function extractJobTitle(jobDescription: string | null): string {
 }
 
 export async function logScanAction(input: LogScanInput): Promise<void> {
+  const t0 = Date.now();
+  console.log(`[TIMING] logScanAction: start`);
+
   const { userId } = await auth();
   if (!userId) return;
 
@@ -28,7 +31,8 @@ export async function logScanAction(input: LogScanInput): Promise<void> {
         modernScore: input.modernScore,
       },
     });
+    console.log(`[TIMING] logScanAction: db write => ${Date.now() - t0}ms`);
   } catch {
-    console.error("[logScanAction] Failed to write scan to database.");
+    console.error(`[TIMING] logScanAction: FAILED after ${Date.now() - t0}ms`);
   }
 }

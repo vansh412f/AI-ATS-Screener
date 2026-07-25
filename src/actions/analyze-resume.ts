@@ -21,11 +21,15 @@ async function callGeminiWithRetry(
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
+      const tAttempt = Date.now();
+      console.log(`[TIMING] gemini: attempt ${attempt + 1} start`);
       const result = await model.generateContent(prompt);
+      console.log(`[TIMING] gemini: attempt ${attempt + 1} success => ${Date.now() - tAttempt}ms`);
       return result.response.text();
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       const message = lastError.message;
+      console.log(`[TIMING] gemini: attempt ${attempt + 1} failed => ${message.slice(0, 80)}`);
 
       if (
         message.includes("API_KEY_INVALID") ||
@@ -50,11 +54,9 @@ async function callGeminiWithRetry(
         message.includes("unavailable") ||
         message.includes("UNAVAILABLE");
 
-      if (!isRetryable) {
-        throw lastError;
-      }
-
+      if (!isRetryable) throw lastError;
       if (attempt < 2) {
+        console.log(`[TIMING] gemini: waiting ${delays[attempt]}ms before retry`);
         await sleep(delays[attempt]);
       }
     }
@@ -68,6 +70,9 @@ async function callGroq(
   prompt: string,
   apiKey: string
 ): Promise<string> {
+  const t0 = Date.now();
+  console.log(`[TIMING] groq: start model=${model}`);
+
   const systemMessage = `You are an ATS scoring system. You must respond with ONLY a valid JSON object — no markdown fences, no explanation, no text before or after the JSON. Follow the scoring instructions exactly as provided.`;
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -89,6 +94,7 @@ async function callGroq(
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.log(`[TIMING] groq: FAILED model=${model} status=${response.status} => ${Date.now() - t0}ms`);
     throw new Error(`Groq API error ${response.status}: ${errorText}`);
   }
 
@@ -103,6 +109,7 @@ async function callGroq(
     throw new Error("Groq returned empty response");
   }
 
+  console.log(`[TIMING] groq: success model=${model} => ${Date.now() - t0}ms`);
   return content;
 }
 
@@ -127,20 +134,17 @@ async function callGroqWithFallback(
       if (message.includes("401") || message.includes("invalid_api_key")) {
         throw lastError;
       }
-
-      continue;
     }
   }
 
   throw lastError;
 }
 
-function parseAndValidate(raw: string): ReturnType<typeof isValidCombinedResult> extends true ? never : unknown {
+function parseAndValidate(raw: string): unknown {
   const cleaned = raw
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")
     .trim();
-
   return JSON.parse(cleaned);
 }
 
@@ -148,7 +152,13 @@ export async function analyzeResumeAction(
   resumeText: string,
   jobDescription: string | null
 ): Promise<CombinedAnalyzeResumeResult> {
+  const t0 = Date.now();
+  console.log(`[TIMING] analyzeResumeAction: start`);
+
+  const tAuth = Date.now();
   const { userId } = await auth();
+  console.log(`[TIMING] analyzeResumeAction: auth() => ${Date.now() - tAuth}ms`);
+
   if (!userId) {
     return {
       success: false,
@@ -156,6 +166,7 @@ export async function analyzeResumeAction(
     };
   }
 
+  const tRateLimit = Date.now();
   try {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const scanCount = await prisma.resumeScan.count({
@@ -164,6 +175,8 @@ export async function analyzeResumeAction(
         createdAt: { gte: twentyFourHoursAgo },
       },
     });
+    console.log(`[TIMING] analyzeResumeAction: rate_limit_db_check => ${Date.now() - tRateLimit}ms | count=${scanCount}`);
+
     if (scanCount >= 10) {
       return {
         success: false,
@@ -172,17 +185,14 @@ export async function analyzeResumeAction(
       };
     }
   } catch {
-    console.error(
-      "[analyzeResumeAction] Rate limit DB check failed — failing open."
-    );
+    console.error(`[TIMING] analyzeResumeAction: rate_limit_db_check FAILED after ${Date.now() - tRateLimit}ms — failing open`);
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return {
       success: false,
-      error:
-        "GEMINI_API_KEY is not configured. Add it to your .env.local file.",
+      error: "GEMINI_API_KEY is not configured. Add it to your .env.local file.",
     };
   }
 
@@ -190,16 +200,18 @@ export async function analyzeResumeAction(
   if (!trimmedText || trimmedText.length < 50) {
     return {
       success: false,
-      error:
-        "Resume text is too short to analyze. Please upload a complete resume.",
+      error: "Resume text is too short to analyze. Please upload a complete resume.",
     };
   }
 
+  const tPrompt = Date.now();
   const prompt = buildCombinedPrompt(trimmedText, jobDescription);
+  console.log(`[TIMING] analyzeResumeAction: buildCombinedPrompt => ${Date.now() - tPrompt}ms | promptLength=${prompt.length} chars`);
 
   let rawResponseText: string | null = null;
   let usedFallback = false;
 
+  const tLlm = Date.now();
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
@@ -211,9 +223,11 @@ export async function analyzeResumeAction(
       },
     });
     rawResponseText = await callGeminiWithRetry(model, prompt);
+    console.log(`[TIMING] analyzeResumeAction: gemini total => ${Date.now() - tLlm}ms`);
   } catch (geminiErr) {
     const geminiMessage =
       geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+    console.log(`[TIMING] analyzeResumeAction: gemini FAILED after ${Date.now() - tLlm}ms => ${geminiMessage.slice(0, 80)}`);
 
     if (
       geminiMessage.includes("API_KEY_INVALID") ||
@@ -228,8 +242,7 @@ export async function analyzeResumeAction(
     if (geminiMessage.includes("SAFETY")) {
       return {
         success: false,
-        error:
-          "The resume content was flagged by safety filters. Please check the document.",
+        error: "The resume content was flagged by safety filters. Please check the document.",
       };
     }
 
@@ -237,19 +250,20 @@ export async function analyzeResumeAction(
     if (!groqApiKey) {
       return {
         success: false,
-        error:
-          "Our analysis engine is temporarily unavailable. Please try again in a moment.",
+        error: "Our analysis engine is temporarily unavailable. Please try again in a moment.",
       };
     }
 
+    const tGroq = Date.now();
     try {
       rawResponseText = await callGroqWithFallback(prompt, groqApiKey);
       usedFallback = true;
+      console.log(`[TIMING] analyzeResumeAction: groq fallback total => ${Date.now() - tGroq}ms`);
     } catch {
+      console.log(`[TIMING] analyzeResumeAction: groq fallback FAILED after ${Date.now() - tGroq}ms`);
       return {
         success: false,
-        error:
-          "Our analysis engines are temporarily unavailable. Please try again in a moment.",
+        error: "Our analysis engines are temporarily unavailable. Please try again in a moment.",
       };
     }
   }
@@ -261,15 +275,17 @@ export async function analyzeResumeAction(
     };
   }
 
+  const tParse = Date.now();
   let parsed: unknown;
   try {
     parsed = parseAndValidate(rawResponseText);
+    console.log(`[TIMING] analyzeResumeAction: JSON parse + validate => ${Date.now() - tParse}ms`);
   } catch {
+    console.log(`[TIMING] analyzeResumeAction: JSON parse FAILED after ${Date.now() - tParse}ms | usedFallback=${usedFallback}`);
     if (usedFallback) {
       return {
         success: false,
-        error:
-          "Our backup analysis engine returned an unexpected format. Please try again.",
+        error: "Our backup analysis engine returned an unexpected format. Please try again.",
       };
     }
     return {
@@ -288,10 +304,11 @@ export async function analyzeResumeAction(
   if (!parsed.isResume) {
     return {
       success: false,
-      error:
-        "This document does not appear to be a resume. Please upload a CV or resume to receive an ATS score.",
+      error: "This document does not appear to be a resume. Please upload a CV or resume to receive an ATS score.",
     };
   }
+
+  console.log(`[TIMING] analyzeResumeAction: COMPLETE => ${Date.now() - t0}ms | provider=${usedFallback ? "groq" : "gemini"}`);
 
   return {
     success: true,
