@@ -17,6 +17,7 @@
   <img src="https://img.shields.io/badge/Recharts-Chart-22B573?style=for-the-badge&logo=recharts" alt="Recharts" />
   <img src="https://img.shields.io/badge/Shadcn_UI-000000?style=for-the-badge&logo=shadcnui&logoColor=white" alt="Shadcn UI" />
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Upstash_Redis-00E676?style=for-the-badge&logo=redis&logoColor=white" alt="Upstash Redis" />
 </p>
 
 </div>
@@ -43,6 +44,7 @@
     - [6.5 Styling & UI/UX: Tailwind CSS v4 & Shadcn UI](#65-styling--uiux-tailwind-css-v4--shadcn-ui)
         - [6.5.1 Design System Specification](#651-design-system-specification)
     - [6.6 File Processing: pdf-parse & @napi-rs/canvas](#66-file-processing-pdf-parse--napi-rscanvas)
+    - [6.7 Redis Architecture: Caching and Rate Limiting](#67-redis-architecture-caching-and-rate-limiting)
 7. [Component & Directory Deep Dive](#7-component--directory-deep-dive)
     - [7.1 The Application Router (src/app)](#71-the-application-router-srcapp)
     - [7.2 Server Actions (src/actions)](#72-server-actions-srcactions)
@@ -322,6 +324,35 @@ The entire application enforces a strict dark design system. No light mode exist
 * **Why We Rejected Alternatives:**
   * *Client-Side PDF.js:* As mentioned, parsing a 5MB PDF on a low-end mobile device's browser will freeze the main thread and crash the tab.
   * *Python/Tesseract OCR:* While OCR can read images, spinning up a Python microservice or installing Tesseract inside a Docker container introduces massive architectural complexity just to read standard PDF text layers.
+
+### 6.7 Redis Architecture: Caching and Rate Limiting
+
+The project integrates **Upstash Redis** (`@upstash/redis`, `@upstash/ratelimit`) to solve two major production bottlenecks identified through timing instrumentation:
+
+**Bottleneck 1 — LLM Response Caching**
+Before Redis, every resume scan made a full API call to Google Gemini 2.5 Flash regardless of whether the exact same resume and job description had been analyzed before. This resulted in **31,000 to 37,000ms** response times on every scan.
+After Redis caching was implemented, repeated scans of the same resume with the same job description are served from cache in approximately **75-932ms** — a **97% reduction** in response time (saving ~36 seconds per scan).
+
+**Bottleneck 2 — Rate Limit Check Optimization**
+Before Redis, every scan made a synchronous PostgreSQL COUNT query to check if the user had exceeded their 10 scans per 24 hours limit. This added 80-200ms of unnecessary database load on every single scan attempt.
+After Redis, rate limiting uses a sliding window algorithm via Upstash's `@upstash/ratelimit` package. The check completes in **1-5ms** and no longer touches the primary database.
+
+**Technical Implementation Details:**
+* **Provider:** Upstash Redis (serverless-native, HTTP-based REST client). Chosen because Vercel serverless functions cannot maintain persistent TCP connections. Upstash's HTTP client works correctly on cold starts and stateless function invocations.
+* **LLM Response Cache:** 
+  * **Key pattern:** `ats_cache:v1:{sha256_hex}`
+  * **Value:** Full JSON string of `CombinedAnalyzeResumeResult`
+  * **TTL:** 24 hours (86,400 seconds)
+  * **Cache Key Generation:** The key is a SHA-256 hash of the heavily normalized resume text combined with the normalized job description text.
+* **Rate Limit Counters:** 
+  * **Key pattern:** `ratelimit:ats:{userId}`
+  * **TTL:** 24 hours (auto-managed sliding window)
+* **Failure Handling (Fail Open):** Redis failure never blocks a user. The system uses a three-tier fallback:
+  1. *Tier 1:* Redis handles both cache and rate limiting.
+  2. *Tier 2 (Redis down):* Cache skipped entirely, rate limiting falls back to PostgreSQL COUNT query.
+  3. *Tier 3 (Redis + Postgres down):* Rate limit fails open. User is allowed to scan. Infrastructure failure never degrades user experience beyond slower response times.
+* **Singleton Pattern:** Redis uses a `globalThis` singleton pattern (similar to Prisma) to prevent multiple client instantiations during Next.js hot reload while remaining correct in production.
+* **Cache Invalidation:** When prompts are updated, incrementing the `CACHE_VERSION` constant in `analyze-resume.ts` from `v1` to `v2` instantly ignores old cached results.
 
 ---
 
@@ -679,6 +710,7 @@ To run this complex application locally, follow these steps meticulously.
 * Node.js version 20.x or greater.
 * npm or pnpm package manager.
 * A local instance of PostgreSQL running, or a free cloud instance (Neon.tech, Supabase).
+* *(Optional but recommended)* Upstash Redis credentials for caching and rate limiting. Without these, the application gracefully falls back to Postgres rate limiting and makes uncached LLM calls.
 
 **Step 1: Clone the repository**
 ```bash
@@ -729,6 +761,13 @@ GEMINI_API_KEY="AIzaSy_YOUR_GEMINI_API_KEY"
 # Engaged automatically when Gemini returns 429 RESOURCE_EXHAUSTED.
 # Retrieve from console.groq.com
 GROQ_API_KEY="gsk_YOUR_GROQ_API_KEY"
+
+# -----------------------------------------------------------------------------
+# UPSTASH REDIS CONFIGURATION (CACHING & RATE LIMITING)
+# -----------------------------------------------------------------------------
+# Retrieve from Upstash console under the REST API tab
+UPSTASH_REDIS_REST_URL="https://your-upstash-url.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your_upstash_token"
 ```
 
 **Step 3: Database Initialization**

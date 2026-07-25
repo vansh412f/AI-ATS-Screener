@@ -44,15 +44,12 @@ async function getCachedResult(
   try {
     const cached = await redis.get<string>(cacheKey);
     if (!cached) return null;
-    const parsed =
-      typeof cached === "string" ? JSON.parse(cached) : cached;
+    const parsed = typeof cached === "string" ? JSON.parse(cached) : cached;
     if (parsed && parsed.success === true) {
-      console.log(`[TIMING] cache: HIT key=${cacheKey.slice(0, 40)}...`);
       return parsed as CombinedAnalyzeResumeResult;
     }
     return null;
-  } catch (err) {
-    console.error(`[TIMING] cache: GET failed — skipping cache`, err);
+  } catch {
     return null;
   }
 }
@@ -65,9 +62,8 @@ async function setCachedResult(
     await redis.set(cacheKey, JSON.stringify(result), {
       ex: CACHE_TTL_SECONDS,
     });
-    console.log(`[TIMING] cache: SET key=${cacheKey.slice(0, 40)}... TTL=${CACHE_TTL_SECONDS}s`);
-  } catch (err) {
-    console.error(`[TIMING] cache: SET failed — non-blocking`, err);
+  } catch {
+    console.error("[cache] Failed to write result to Redis — non-blocking.");
   }
 }
 
@@ -77,10 +73,8 @@ async function checkRateLimit(userId: string): Promise<{
 }> {
   try {
     const result = await ratelimit.limit(userId);
-    console.log(`[TIMING] ratelimit: source=redis allowed=${result.success} remaining=${result.remaining}`);
     return { allowed: result.success, source: "redis" };
   } catch {
-    console.error(`[TIMING] ratelimit: Redis failed — falling back to Postgres`);
     try {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const count = await prisma.resumeScan.count({
@@ -89,10 +83,9 @@ async function checkRateLimit(userId: string): Promise<{
           createdAt: { gte: twentyFourHoursAgo },
         },
       });
-      console.log(`[TIMING] ratelimit: source=postgres count=${count}`);
       return { allowed: count < 10, source: "postgres" };
     } catch {
-      console.error(`[TIMING] ratelimit: Postgres also failed — failing open`);
+      console.error("[rateLimit] Both Redis and Postgres failed — failing open.");
       return { allowed: true, source: "failopen" };
     }
   }
@@ -109,15 +102,11 @@ async function callGeminiWithRetry(
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const tAttempt = Date.now();
-      console.log(`[TIMING] gemini: attempt ${attempt + 1} start`);
       const result = await model.generateContent(prompt);
-      console.log(`[TIMING] gemini: attempt ${attempt + 1} success => ${Date.now() - tAttempt}ms`);
       return result.response.text();
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       const message = lastError.message;
-      console.log(`[TIMING] gemini: attempt ${attempt + 1} failed => ${message.slice(0, 80)}`);
 
       if (
         message.includes("API_KEY_INVALID") ||
@@ -143,10 +132,7 @@ async function callGeminiWithRetry(
         message.includes("UNAVAILABLE");
 
       if (!isRetryable) throw lastError;
-      if (attempt < 2) {
-        console.log(`[TIMING] gemini: waiting ${delays[attempt]}ms before retry`);
-        await sleep(delays[attempt]);
-      }
+      if (attempt < 2) await sleep(delays[attempt]);
     }
   }
 
@@ -158,9 +144,6 @@ async function callGroq(
   prompt: string,
   apiKey: string
 ): Promise<string> {
-  const t0 = Date.now();
-  console.log(`[TIMING] groq: start model=${model}`);
-
   const systemMessage = `You are an ATS scoring system. You must respond with ONLY a valid JSON object — no markdown fences, no explanation, no text before or after the JSON. Follow the scoring instructions exactly as provided.`;
 
   const response = await fetch(
@@ -185,9 +168,6 @@ async function callGroq(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.log(
-      `[TIMING] groq: FAILED model=${model} status=${response.status} => ${Date.now() - t0}ms`
-    );
     throw new Error(`Groq API error ${response.status}: ${errorText}`);
   }
 
@@ -198,9 +178,6 @@ async function callGroq(
   const content = data.choices[0]?.message?.content;
   if (!content) throw new Error("Groq returned empty response");
 
-  console.log(
-    `[TIMING] groq: success model=${model} => ${Date.now() - t0}ms`
-  );
   return content;
 }
 
@@ -238,13 +215,7 @@ export async function analyzeResumeAction(
   resumeText: string,
   jobDescription: string | null
 ): Promise<CombinedAnalyzeResumeResult> {
-  const t0 = Date.now();
-  console.log(`[TIMING] analyzeResumeAction: start`);
-
-  const tAuth = Date.now();
   const { userId } = await auth();
-  console.log(`[TIMING] analyzeResumeAction: auth() => ${Date.now() - tAuth}ms`);
-
   if (!userId) {
     return {
       success: false,
@@ -260,24 +231,11 @@ export async function analyzeResumeAction(
     };
   }
 
-  // ── Step 1: Cache Check ───────────────────────────────────────────────
-  const tCache = Date.now();
   const cacheKey = generateCacheKey(trimmedText, jobDescription);
   const cachedResult = await getCachedResult(cacheKey);
-  console.log(`[TIMING] analyzeResumeAction: cache check => ${Date.now() - tCache}ms`);
+  if (cachedResult) return cachedResult;
 
-  if (cachedResult) {
-    console.log(`[TIMING] analyzeResumeAction: CACHE HIT — returning in ${Date.now() - t0}ms`);
-    return cachedResult;
-  }
-
-  console.log(`[TIMING] analyzeResumeAction: cache miss — proceeding to rate limit`);
-
-  // ── Step 2: Rate Limit Check ──────────────────────────────────────────
-  const tRateLimit = Date.now();
-  const { allowed, source } = await checkRateLimit(userId);
-  console.log(`[TIMING] analyzeResumeAction: rate limit check (${source}) => ${Date.now() - tRateLimit}ms | allowed=${allowed}`);
-
+  const { allowed } = await checkRateLimit(userId);
   if (!allowed) {
     return {
       success: false,
@@ -286,7 +244,6 @@ export async function analyzeResumeAction(
     };
   }
 
-  // ── Step 3: API Key Validation ────────────────────────────────────────
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return {
@@ -295,16 +252,10 @@ export async function analyzeResumeAction(
     };
   }
 
-  // ── Step 4: Build Prompt ──────────────────────────────────────────────
-  const tPrompt = Date.now();
   const prompt = buildCombinedPrompt(trimmedText, jobDescription);
-  console.log(`[TIMING] analyzeResumeAction: buildCombinedPrompt => ${Date.now() - tPrompt}ms | length=${prompt.length} chars`);
-
-  // ── Step 5: LLM Call ──────────────────────────────────────────────────
   let rawResponseText: string | null = null;
   let usedFallback = false;
 
-  const tLlm = Date.now();
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
@@ -316,13 +267,9 @@ export async function analyzeResumeAction(
       },
     });
     rawResponseText = await callGeminiWithRetry(model, prompt);
-    console.log(`[TIMING] analyzeResumeAction: gemini total => ${Date.now() - tLlm}ms`);
   } catch (geminiErr) {
     const geminiMessage =
       geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-    console.log(
-      `[TIMING] analyzeResumeAction: gemini FAILED after ${Date.now() - tLlm}ms => ${geminiMessage.slice(0, 80)}`
-    );
 
     if (
       geminiMessage.includes("API_KEY_INVALID") ||
@@ -351,17 +298,10 @@ export async function analyzeResumeAction(
       };
     }
 
-    const tGroq = Date.now();
     try {
       rawResponseText = await callGroqWithFallback(prompt, groqApiKey);
       usedFallback = true;
-      console.log(
-        `[TIMING] analyzeResumeAction: groq fallback total => ${Date.now() - tGroq}ms`
-      );
     } catch {
-      console.log(
-        `[TIMING] analyzeResumeAction: groq fallback FAILED after ${Date.now() - tGroq}ms`
-      );
       return {
         success: false,
         error:
@@ -377,18 +317,10 @@ export async function analyzeResumeAction(
     };
   }
 
-  // ── Step 6: Parse and Validate ────────────────────────────────────────
-  const tParse = Date.now();
   let parsed: unknown;
   try {
     parsed = parseAndValidate(rawResponseText);
-    console.log(
-      `[TIMING] analyzeResumeAction: JSON parse => ${Date.now() - tParse}ms`
-    );
   } catch {
-    console.log(
-      `[TIMING] analyzeResumeAction: JSON parse FAILED after ${Date.now() - tParse}ms | usedFallback=${usedFallback}`
-    );
     if (usedFallback) {
       return {
         success: false,
@@ -417,15 +349,11 @@ export async function analyzeResumeAction(
     };
   }
 
-  // ── Step 7: Build Final Result ────────────────────────────────────────
   const finalResult: CombinedAnalyzeResumeResult = {
     success: true,
     legacy: {
       isResume: true,
-      atsScore: Math.min(
-        100,
-        Math.max(0, Math.round(parsed.legacy.atsScore))
-      ),
+      atsScore: Math.min(100, Math.max(0, Math.round(parsed.legacy.atsScore))),
       summary: parsed.legacy.summary,
       strengths: parsed.legacy.strengths,
       weaknesses: parsed.legacy.weaknesses,
@@ -433,10 +361,7 @@ export async function analyzeResumeAction(
     },
     modern: {
       isResume: true,
-      atsScore: Math.min(
-        100,
-        Math.max(0, Math.round(parsed.modern.atsScore))
-      ),
+      atsScore: Math.min(100, Math.max(0, Math.round(parsed.modern.atsScore))),
       summary: parsed.modern.summary,
       strengths: parsed.modern.strengths,
       weaknesses: parsed.modern.weaknesses,
@@ -444,12 +369,7 @@ export async function analyzeResumeAction(
     },
   };
 
-  // ── Step 8: Write to Cache (non-blocking) ─────────────────────────────
   void setCachedResult(cacheKey, finalResult);
-
-  console.log(
-    `[TIMING] analyzeResumeAction: COMPLETE => ${Date.now() - t0}ms | provider=${usedFallback ? "groq" : "gemini"} | cached=true`
-  );
 
   return finalResult;
 }
