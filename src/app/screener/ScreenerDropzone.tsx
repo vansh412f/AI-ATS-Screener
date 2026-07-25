@@ -354,40 +354,55 @@ export function ScreenerDropzone({
 
       <div>
         <SectionLabel icon={Wand2} label="Quick Fill" optional />
-        <Select
-          value={selectedRole}
-          onValueChange={handleRoleSelect}
-          disabled={isLoading || !isSignedIn}
-        >
-          <SelectTrigger
-            className={cn(
-              "w-full bg-zinc-950/90 border border-zinc-800 rounded-xl text-sm text-zinc-200 h-10",
-              "hover:border-zinc-700 focus:ring-0 focus:ring-offset-0",
-              "transition-colors duration-200",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
-            )}
+        <div className="flex items-center gap-2">
+          <Select
+            value={selectedRole}
+            onValueChange={handleRoleSelect}
+            disabled={isLoading || !isSignedIn}
           >
-            <SelectValue placeholder="Select a target role..." />
-          </SelectTrigger>
-          <SelectContent className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl shadow-black/80">
-            {JOB_CATEGORIES.map((category) => (
-              <SelectGroup key={category.category}>
-                <SelectLabel className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 px-2">
-                  {category.category}
-                </SelectLabel>
-                {category.roles.map((role) => (
-                  <SelectItem
-                    key={role.label}
-                    value={role.label}
-                    className="text-sm text-zinc-300 focus:bg-zinc-800 focus:text-white rounded-lg cursor-pointer"
-                  >
-                    {role.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
+            <SelectTrigger
+              className={cn(
+                "w-full bg-zinc-950/90 border border-zinc-800 rounded-xl text-sm text-zinc-200 h-10",
+                "hover:border-zinc-700 focus:ring-0 focus:ring-offset-0",
+                "transition-colors duration-200",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <SelectValue placeholder="Select a target role..." />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl shadow-black/80">
+              {JOB_CATEGORIES.map((category) => (
+                <SelectGroup key={category.category}>
+                  <SelectLabel className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 px-2">
+                    {category.category}
+                  </SelectLabel>
+                  {category.roles.map((role) => (
+                    <SelectItem
+                      key={role.label}
+                      value={role.label}
+                      className="text-sm text-zinc-300 focus:bg-zinc-800 focus:text-white rounded-lg cursor-pointer"
+                    >
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedRole && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                applyRole("", "");
+              }}
+              className="flex items-center justify-center shrink-0 w-10 h-10 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+              aria-label="Clear selected role"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
         {pendingRole ? (
           <div className="mt-3 flex items-center gap-3 rounded-xl border border-orange-500/20 bg-orange-950/20 px-3.5 py-2.5 animate-in fade-in duration-200">
