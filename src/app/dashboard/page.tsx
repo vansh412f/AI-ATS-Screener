@@ -58,15 +58,9 @@ function PageHeader({ scans }: { scans: ScanRecord[] }) {
 }
 
 export default async function DashboardPage() {
-  const t0 = Date.now();
-  console.log(`[TIMING] dashboard: start`);
-
-  const tAuth = Date.now();
   const { userId } = await auth();
-  console.log(`[TIMING] dashboard: auth() => ${Date.now() - tAuth}ms`);
 
   if (!userId) {
-    console.log(`[TIMING] dashboard: unauthenticated — total => ${Date.now() - t0}ms`);
     return (
       <div className="bg-black min-h-screen flex items-center justify-center">
         <AuthWall />
@@ -74,11 +68,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const tHistory = Date.now();
   const scans = await getScanHistory(userId);
-  console.log(`[TIMING] dashboard: getScanHistory (${scans.length} rows) => ${Date.now() - tHistory}ms`);
-  console.log(`[TIMING] dashboard: total => ${Date.now() - t0}ms`);
-
   const statsScans = scans;
   const chartScans = scans.slice(0, 10);
   const tableScans = scans.slice(0, 20);
