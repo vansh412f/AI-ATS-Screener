@@ -8,12 +8,72 @@ import { redis, ratelimit } from "@/lib/redis";
 
 import type { CombinedAnalyzeResumeResult } from "@/types/ats";
 import { ATS_RESPONSE_SCHEMA, isValidCombinedResult } from "@/lib/ats/schema";
+import type { CombinedAtsResponse } from "@/lib/ats/schema";
 import { buildCombinedPrompt } from "@/lib/ats/prompts";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const CACHE_TTL_SECONDS = 86_400;
+
+const GEMINI_MODEL =
+  process.env.GEMINI_MODEL?.trim() || "gemini-3.1-flash-lite";
+
+const GROQ_MODELS = [
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+] as const;
+
+const GEMINI_REQUEST_TIMEOUT_MS = 10_000;
+const GROQ_REQUEST_TIMEOUT_MS = 12_000;
+const GROQ_MAX_COMPLETION_TOKENS = 4096;
+
+const GROQ_ENGINE_SCHEMA = {
+  type: "object",
+  properties: {
+    atsScore: { type: "number" },
+    summary: { type: "string" },
+    strengths: { type: "array", items: { type: "string" } },
+    weaknesses: { type: "array", items: { type: "string" } },
+    actionableSteps: { type: "array", items: { type: "string" } },
+  },
+  required: [
+    "atsScore",
+    "summary",
+    "strengths",
+    "weaknesses",
+    "actionableSteps",
+  ],
+  additionalProperties: false,
+};
+
+const GROQ_RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    isResume: { type: "boolean" },
+    legacy: GROQ_ENGINE_SCHEMA,
+    modern: GROQ_ENGINE_SCHEMA,
+  },
+  required: ["isResume", "legacy", "modern"],
+  additionalProperties: false,
+};
+
+const POLICY_REFUSAL_REASONS = new Set([
+  "SAFETY",
+  "RECITATION",
+  "BLOCKLIST",
+  "PROHIBITED_CONTENT",
+  "SPII",
+  "MALICIOUS",
+  "ESCALATION",
+]);
+
+class PolicyRefusalError extends Error {
+  constructor(message = "Content blocked by safety or policy filters") {
+    super(message);
+    this.name = "PolicyRefusalError";
+  }
+}
 
 function normalizeText(text: string): string {
   return text
@@ -33,7 +93,8 @@ function generateCacheKey(
   const normalizedJd = jobDescription
     ? normalizeText(jobDescription)
     : "__NO_JD__";
-  const combined = `${normalizedResume}|||JD_DELIMITER|||${normalizedJd}`;
+  const modelChainIdentity = `${GEMINI_MODEL}:${GROQ_MODELS.join("->")}`;
+  const combined = `${modelChainIdentity}|||${normalizedResume}|||JD_DELIMITER|||${normalizedJd}`;
   const hash = createHash("sha256").update(combined, "utf8").digest("hex");
   return `ats_cache:${CACHE_VERSION}:${hash}`;
 }
@@ -91,124 +152,350 @@ async function checkRateLimit(userId: string): Promise<{
   }
 }
 
-async function callGeminiWithRetry(
-  model: ReturnType<
-    InstanceType<typeof GoogleGenerativeAI>["getGenerativeModel"]
-  >,
-  prompt: string
-): Promise<string> {
-  const delays = [1000, 2000];
-  let lastError: Error = new Error("Unknown error");
-
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const result = await model.generateContent(prompt);
-      return result.response.text();
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      const message = lastError.message;
-
-      if (
-        message.includes("API_KEY_INVALID") ||
-        message.includes("403") ||
-        message.includes("SAFETY")
-      ) {
-        throw lastError;
-      }
-
-      if (
-        message.includes("RESOURCE_EXHAUSTED") ||
-        message.includes("429")
-      ) {
-        throw lastError;
-      }
-
-      const isRetryable =
-        message.includes("503") ||
-        message.includes("500") ||
-        message.includes("overloaded") ||
-        message.includes("high demand") ||
-        message.includes("unavailable") ||
-        message.includes("UNAVAILABLE");
-
-      if (!isRetryable) throw lastError;
-      if (attempt < 2) await sleep(delays[attempt]);
-    }
-  }
-
-  throw lastError;
-}
-
-async function callGroq(
-  model: string,
-  prompt: string,
-  apiKey: string
-): Promise<string> {
-  const systemMessage = `You are an ATS scoring system. You must respond with ONLY a valid JSON object — no markdown fences, no explanation, no text before or after the JSON. Follow the scoring instructions exactly as provided.`;
-
-  const response = await fetch(
-    "https://api.groq.com/openai/v1/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemMessage },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 4096,
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Groq API error ${response.status}: ${errorText}`);
-  }
-
-  const data = (await response.json()) as {
-    choices: Array<{ message: { content: string } }>;
-  };
-
-  const content = data.choices[0]?.message?.content;
-  if (!content) throw new Error("Groq returned empty response");
-
-  return content;
-}
-
-async function callGroqWithFallback(
-  prompt: string,
-  apiKey: string
-): Promise<string> {
-  const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
-  let lastError: Error = new Error("All Groq models failed");
-
-  for (const model of models) {
-    try {
-      return await callGroq(model, prompt, apiKey);
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      const message = lastError.message;
-      if (message.includes("401") || message.includes("invalid_api_key")) {
-        throw lastError;
-      }
-    }
-  }
-
-  throw lastError;
-}
-
 function parseAndValidate(raw: string): unknown {
   const cleaned = raw
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")
     .trim();
   return JSON.parse(cleaned);
+}
+
+function requireValidResult(raw: string): CombinedAtsResponse {
+  const parsed = parseAndValidate(raw);
+
+  if (!isValidCombinedResult(parsed)) {
+    throw new Error("INVALID_MODEL_RESPONSE");
+  }
+
+  return parsed;
+}
+
+async function callGeminiWithRetry(
+  model: ReturnType<
+    InstanceType<typeof GoogleGenerativeAI>["getGenerativeModel"]
+  >,
+  prompt: string
+): Promise<string> {
+  const delays = [1000];
+  let lastError: Error = new Error("Unknown error");
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+
+      const promptBlockReason = response.promptFeedback?.blockReason;
+      if (
+        promptBlockReason &&
+        (promptBlockReason as string) !== "BLOCKED_REASON_UNSPECIFIED"
+      ) {
+        throw new PolicyRefusalError();
+      }
+
+      const candidate = response.candidates?.[0];
+      if (!candidate) {
+        throw new Error("GEMINI_NO_CANDIDATES");
+      }
+
+      const finishReason = candidate.finishReason;
+      const upperReason = finishReason ? String(finishReason).toUpperCase() : "";
+
+      if (upperReason && POLICY_REFUSAL_REASONS.has(upperReason)) {
+        throw new PolicyRefusalError();
+      }
+
+      if (upperReason === "MAX_TOKENS") {
+        throw new Error("GEMINI_MAX_TOKENS_INCOMPLETE");
+      }
+
+      // Missing, empty, or non-STOP finish reason indicates incomplete generation
+      if (upperReason !== "STOP") {
+        throw new Error("GEMINI_INCOMPLETE_RESPONSE");
+      }
+
+      const text = response.text();
+      if (!text || text.trim().length === 0) {
+        throw new Error("Gemini returned empty response");
+      }
+      return text;
+    } catch (err) {
+      if (err instanceof PolicyRefusalError) {
+        throw err;
+      }
+
+      lastError = err instanceof Error ? err : new Error(String(err));
+      const message = lastError.message;
+      const lowerMessage = message.toLowerCase();
+
+      // Check message for explicit policy and safety refusal terms
+      if (
+        lowerMessage.includes("safety") ||
+        lowerMessage.includes("recitation") ||
+        lowerMessage.includes("blocklist") ||
+        lowerMessage.includes("prohibited_content") ||
+        lowerMessage.includes("spii") ||
+        lowerMessage.includes("malicious") ||
+        lowerMessage.includes("escalation") ||
+        lowerMessage.includes("blocked due to") ||
+        lowerMessage.includes("policy")
+      ) {
+        throw new PolicyRefusalError();
+      }
+
+      // Check SDK errorDetails if present
+      const errObj = err as {
+        status?: number;
+        errorDetails?: unknown[];
+      };
+
+      if (Array.isArray(errObj.errorDetails)) {
+        const detailsStr = JSON.stringify(errObj.errorDetails).toLowerCase();
+        if (
+          detailsStr.includes("safety") ||
+          detailsStr.includes("recitation") ||
+          detailsStr.includes("blocklist") ||
+          detailsStr.includes("prohibited_content") ||
+          detailsStr.includes("spii") ||
+          detailsStr.includes("malicious") ||
+          detailsStr.includes("escalation") ||
+          detailsStr.includes("policy")
+        ) {
+          throw new PolicyRefusalError();
+        }
+      }
+
+      // Classify retryable status using numeric HTTP status
+      let numericStatus: number | undefined =
+        typeof errObj.status === "number" ? errObj.status : undefined;
+
+      if (numericStatus === undefined) {
+        const statusMatch = message.match(/\[(\d{3})\s+[^\]]*\]/);
+        if (statusMatch) {
+          numericStatus = parseInt(statusMatch[1], 10);
+        }
+      }
+
+      // 429 RESOURCE_EXHAUSTED must never be retried, even if '500' appears in message text
+      if (numericStatus === 429 || message.includes("RESOURCE_EXHAUSTED")) {
+        throw lastError;
+      }
+
+      // Other 4xx client errors are non-retryable
+      if (numericStatus !== undefined && numericStatus >= 400 && numericStatus < 500) {
+        throw lastError;
+      }
+
+      // Only 500, 502, 503, 504 or transient network overload are retryable
+      const isRetryableServerStatus =
+        numericStatus === 500 ||
+        numericStatus === 502 ||
+        numericStatus === 503 ||
+        numericStatus === 504;
+
+      const isRetryableNetworkError =
+        numericStatus === undefined &&
+        (lowerMessage.includes("overloaded") ||
+          lowerMessage.includes("high demand") ||
+          lowerMessage.includes("unavailable") ||
+          lowerMessage.includes("econnreset"));
+
+      const isRetryable = isRetryableServerStatus || isRetryableNetworkError;
+
+      if (!isRetryable || attempt >= 1) {
+        throw lastError;
+      }
+
+      await sleep(delays[attempt]);
+    }
+  }
+
+  throw lastError;
+}
+
+async function callGemini(
+  prompt: string,
+  apiKey: string
+): Promise<CombinedAtsResponse> {
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel(
+    {
+      model: GEMINI_MODEL,
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: ATS_RESPONSE_SCHEMA,
+      },
+    },
+    {
+      timeout: GEMINI_REQUEST_TIMEOUT_MS,
+    }
+  );
+
+  const rawText = await callGeminiWithRetry(model, prompt);
+  return requireValidResult(rawText);
+}
+
+async function callGroqModel(
+  model: string,
+  prompt: string,
+  apiKey: string
+): Promise<CombinedAtsResponse> {
+  const systemMessage =
+    "You are an ATS scoring system. You must respond with ONLY a valid JSON object — no markdown fences, no explanation, no text before or after the JSON. Follow the scoring instructions exactly as provided.";
+
+  let response: Response;
+  try {
+    response = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(GROQ_REQUEST_TIMEOUT_MS),
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemMessage },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.6,
+          max_completion_tokens: GROQ_MAX_COMPLETION_TOKENS,
+          reasoning_effort: "low",
+          include_reasoning: false,
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "ats_analysis",
+              strict: true,
+              schema: GROQ_RESPONSE_SCHEMA,
+            },
+          },
+        }),
+      }
+    );
+  } catch (err) {
+    throw new Error(
+      `Groq request failed: ${err instanceof Error ? err.message : "network error"}`
+    );
+  }
+
+  if (!response.ok) {
+    let errorJson: { error?: { message?: string; type?: string; code?: string } } | null = null;
+    try {
+      const raw: any = await response.json(); errorJson = raw;
+    } catch {
+      // Body is not JSON
+    }
+
+    const errCode = errorJson?.error?.code ? String(errorJson.error.code).toLowerCase() : "";
+    const errType = errorJson?.error?.type ? String(errorJson.error.type).toLowerCase() : "";
+    const errMsg = errorJson?.error?.message ? String(errorJson.error.message).toLowerCase() : "";
+
+    const isPolicyRefusal =
+      errCode.includes("content_filter") ||
+      errCode.includes("policy") ||
+      errType.includes("content_filter") ||
+      errType.includes("policy") ||
+      errMsg.includes("content filter") ||
+      errMsg.includes("safety") ||
+      errMsg.includes("policy") ||
+      errMsg.includes("prohibited") ||
+      errMsg.includes("spii") ||
+      errMsg.includes("escalation");
+
+    if (isPolicyRefusal) {
+      throw new PolicyRefusalError("Content blocked by Groq policy filters");
+    }
+
+    let errorJson: { error?: { message?: string; type?: string; code?: string } } | null = null;
+    try {
+      errorJson = (await response.json()) as typeof errorJson;
+    } catch {
+      // Body is not JSON
+    }
+
+    const errCode = errorJson?.error?.code ? String(errorJson.error.code).toLowerCase() : "";
+    const errType = errorJson?.error?.type ? String(errorJson.error.type).toLowerCase() : "";
+    const errMsg = errorJson?.error?.message ? String(errorJson.error.message).toLowerCase() : "";
+
+    const isPolicyRefusal =
+      errCode.includes("content_filter") ||
+      errCode.includes("policy") ||
+      errType.includes("content_filter") ||
+      errType.includes("policy") ||
+      errMsg.includes("content filter") ||
+      errMsg.includes("safety") ||
+      errMsg.includes("policy") ||
+      errMsg.includes("prohibited") ||
+      errMsg.includes("spii") ||
+      errMsg.includes("escalation");
+
+    if (isPolicyRefusal) {
+      throw new PolicyRefusalError("Content blocked by Groq policy filters");
+    }
+
+    throw new Error(`Groq HTTP error ${response.status}`);
+  }
+
+  let data: {
+    choices?: Array<{
+      message?: { content?: string | null; refusal?: string | null };
+      finish_reason?: string | null;
+    }>;
+  };
+
+  try {
+    data = (await response.json()) as typeof data;
+  } catch {
+    throw new Error("Groq returned invalid JSON envelope");
+  }
+
+  const choice = data?.choices?.[0];
+  if (!choice) {
+    throw new Error("Groq returned no choices");
+  }
+
+  const groqReason = choice.finish_reason ? String(choice.finish_reason).toUpperCase() : "";
+
+  if (groqReason === "CONTENT_FILTER" || choice.message?.refusal) {
+    throw new PolicyRefusalError();
+  }
+
+  if (groqReason === "LENGTH") {
+    throw new Error("Groq response was truncated due to token limit");
+  }
+
+  if (groqReason !== "STOP") {
+    throw new Error("Groq response incomplete");
+  }
+
+  const content = choice.message?.content?.trim();
+  if (!content) {
+    throw new Error("Groq returned empty response");
+  }
+
+  return requireValidResult(content);
+}
+
+async function callGroqWithFallback(
+  prompt: string,
+  apiKey: string
+): Promise<CombinedAtsResponse> {
+  let lastError: Error = new Error("All Groq models failed");
+
+  for (const model of GROQ_MODELS) {
+    try {
+      return await callGroqModel(model, prompt, apiKey);
+    } catch (err) {
+      if (err instanceof PolicyRefusalError) {
+        throw err;
+      }
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  throw lastError;
 }
 
 export async function analyzeResumeAction(
@@ -227,7 +514,8 @@ export async function analyzeResumeAction(
   if (!trimmedText || trimmedText.length < 50) {
     return {
       success: false,
-      error: "Resume text is too short to analyze. Please upload a complete resume.",
+      error:
+        "Resume text is too short to analyze. Please upload a complete resume.",
     };
   }
 
@@ -244,64 +532,47 @@ export async function analyzeResumeAction(
     };
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return {
-      success: false,
-      error: "GEMINI_API_KEY is not configured. Add it to your .env.local file.",
-    };
+  const prompt = buildCombinedPrompt(trimmedText, jobDescription);
+  let validResult: CombinedAtsResponse | null = null;
+
+  // 1. Primary: Google Gemini
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  if (geminiApiKey) {
+    try {
+      validResult = await callGemini(prompt, geminiApiKey);
+    } catch (geminiErr) {
+      if (geminiErr instanceof PolicyRefusalError) {
+        return {
+          success: false,
+          error:
+            "The resume content was flagged by safety filters. Please check the document.",
+        };
+      }
+      validResult = null;
+    }
   }
 
-  const prompt = buildCombinedPrompt(trimmedText, jobDescription);
-  let rawResponseText: string | null = null;
-  let usedFallback = false;
-
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: ATS_RESPONSE_SCHEMA,
-        temperature: 0.1,
-      },
-    });
-    rawResponseText = await callGeminiWithRetry(model, prompt);
-  } catch (geminiErr) {
-    const geminiMessage =
-      geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-
-    if (
-      geminiMessage.includes("API_KEY_INVALID") ||
-      geminiMessage.includes("403")
-    ) {
-      return {
-        success: false,
-        error: "Invalid API key configuration. Please contact support.",
-      };
-    }
-
-    if (geminiMessage.includes("SAFETY")) {
-      return {
-        success: false,
-        error:
-          "The resume content was flagged by safety filters. Please check the document.",
-      };
-    }
-
+  // 2. Fallbacks: Groq (openai/gpt-oss-120b -> openai/gpt-oss-20b)
+  if (!validResult) {
     const groqApiKey = process.env.GROQ_API_KEY;
     if (!groqApiKey) {
       return {
         success: false,
         error:
-          "Our analysis engine is temporarily unavailable. Please try again in a moment.",
+          "Our analysis engines are temporarily unavailable. Please try again in a moment.",
       };
     }
 
     try {
-      rawResponseText = await callGroqWithFallback(prompt, groqApiKey);
-      usedFallback = true;
-    } catch {
+      validResult = await callGroqWithFallback(prompt, groqApiKey);
+    } catch (groqErr) {
+      if (groqErr instanceof PolicyRefusalError) {
+        return {
+          success: false,
+          error:
+            "The resume content was flagged by safety filters. Please check the document.",
+        };
+      }
       return {
         success: false,
         error:
@@ -310,38 +581,15 @@ export async function analyzeResumeAction(
     }
   }
 
-  if (!rawResponseText) {
+  if (!validResult) {
     return {
       success: false,
-      error: "No response received from analysis engine. Please try again.",
+      error:
+        "Our analysis engines are temporarily unavailable. Please try again in a moment.",
     };
   }
 
-  let parsed: unknown;
-  try {
-    parsed = parseAndValidate(rawResponseText);
-  } catch {
-    if (usedFallback) {
-      return {
-        success: false,
-        error:
-          "Our backup analysis engine returned an unexpected format. Please try again.",
-      };
-    }
-    return {
-      success: false,
-      error: "The analysis returned an unexpected format. Please try again.",
-    };
-  }
-
-  if (!isValidCombinedResult(parsed)) {
-    return {
-      success: false,
-      error: "The analysis response was incomplete. Please try again.",
-    };
-  }
-
-  if (!parsed.isResume) {
+  if (!validResult.isResume) {
     return {
       success: false,
       error:
@@ -353,19 +601,25 @@ export async function analyzeResumeAction(
     success: true,
     legacy: {
       isResume: true,
-      atsScore: Math.min(100, Math.max(0, Math.round(parsed.legacy.atsScore))),
-      summary: parsed.legacy.summary,
-      strengths: parsed.legacy.strengths,
-      weaknesses: parsed.legacy.weaknesses,
-      actionableSteps: parsed.legacy.actionableSteps,
+      atsScore: Math.min(
+        100,
+        Math.max(0, Math.round(validResult.legacy.atsScore))
+      ),
+      summary: validResult.legacy.summary,
+      strengths: validResult.legacy.strengths,
+      weaknesses: validResult.legacy.weaknesses,
+      actionableSteps: validResult.legacy.actionableSteps,
     },
     modern: {
       isResume: true,
-      atsScore: Math.min(100, Math.max(0, Math.round(parsed.modern.atsScore))),
-      summary: parsed.modern.summary,
-      strengths: parsed.modern.strengths,
-      weaknesses: parsed.modern.weaknesses,
-      actionableSteps: parsed.modern.actionableSteps,
+      atsScore: Math.min(
+        100,
+        Math.max(0, Math.round(validResult.modern.atsScore))
+      ),
+      summary: validResult.modern.summary,
+      strengths: validResult.modern.strengths,
+      weaknesses: validResult.modern.weaknesses,
+      actionableSteps: validResult.modern.actionableSteps,
     },
   };
 
