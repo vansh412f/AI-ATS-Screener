@@ -383,34 +383,12 @@ async function callGroqModel(
   if (!response.ok) {
     let errorJson: { error?: { message?: string; type?: string; code?: string } } | null = null;
     try {
-      const raw: any = await response.json(); errorJson = raw;
-    } catch {
-      // Body is not JSON
-    }
-
-    const errCode = errorJson?.error?.code ? String(errorJson.error.code).toLowerCase() : "";
-    const errType = errorJson?.error?.type ? String(errorJson.error.type).toLowerCase() : "";
-    const errMsg = errorJson?.error?.message ? String(errorJson.error.message).toLowerCase() : "";
-
-    const isPolicyRefusal =
-      errCode.includes("content_filter") ||
-      errCode.includes("policy") ||
-      errType.includes("content_filter") ||
-      errType.includes("policy") ||
-      errMsg.includes("content filter") ||
-      errMsg.includes("safety") ||
-      errMsg.includes("policy") ||
-      errMsg.includes("prohibited") ||
-      errMsg.includes("spii") ||
-      errMsg.includes("escalation");
-
-    if (isPolicyRefusal) {
-      throw new PolicyRefusalError("Content blocked by Groq policy filters");
-    }
-
-    let errorJson: { error?: { message?: string; type?: string; code?: string } } | null = null;
-    try {
-      errorJson = (await response.json()) as typeof errorJson;
+      const raw: unknown = await response.json();
+      if (raw && typeof raw === "object") {
+        errorJson = raw as {
+          error?: { message?: string; type?: string; code?: string };
+        };
+      }
     } catch {
       // Body is not JSON
     }
